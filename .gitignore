@@ -1,0 +1,64 @@
+# Python 가상환경
+.venv/
+venv/
+env/
+ENV/
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# pipenv
+Pipfile.lock
+
+# Poetry
+poetry.lock
+
+# Jupyter Notebook 체크포인트
+.ipynb_checkpoints
+
+# 빌드/배포 파일
+build/
+dist/
+*.egg-info/
+*.eggs/
+
+# 로그 파일
+*.log
+
+# OS 파일
+.DS_Store
+Thumbs.db
+
+# IDE 설정
+.vscode/
+.idea/
+*.iml
+
+# 환경 변수 및 비밀키 파일
+.env
+.env.*
+*.env
+
+# 테스트/커버리지
+.coverage
+htmlcov/
+.tox/
+.pytest_cache/
+
+# mypy, pyright 등 타입 체크
+.mypy_cache/
+.pyrightcache/
+
+# FastAPI static/media (필요시)
+lesson-sync-fastapi/static/
+lesson-sync-fastapi/media/
+
+# SQLite 등 기타 데이터베이스 파일
+*.sqlite3
+
+# lesson-sync-fastapi 내부 파이썬 캐시
+lesson-sync-fastapi/__pycache__/
+lesson-sync-fastapi/**/*.pyc
+
+# 기타 필요에 따라 추가
