@@ -1,0 +1,29 @@
+# FastAPI 서버 및 필수 웹 서버
+fastapi
+uvicorn
+
+# 오디오 처리
+librosa
+soundfile
+numpy
+pandas
+
+# YAMNet, Whisper
+tensorflow
+tensorflow-hub
+torch
+openai-whisper
+
+# OpenAI API
+openai
+
+# 파일 업로드 등 FastAPI 보조
+python-multipart
+
+# 환경 변수/설정 관리
+pydantic
+pydantic-settings
+python-dotenv
+
+# HTTP 요청
+requests
