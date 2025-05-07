@@ -1,7 +1,6 @@
 import tensorflow as tf
 import tensorflow_hub as hub
 import numpy as np
-import librosa
 import pandas as pd
 import whisper
 import torch
@@ -21,17 +20,13 @@ class AudioProcessor:
 
     def _init_whisper(self):
         device = "cuda" if torch.cuda.is_available() else "cpu"
-        return whisper.load_model("medium", device=device)
+        # print(f"device: {device}")
+        return whisper.load_model("tiny", device=device)
 
-    def load_wav_16k_mono(self, filename):
-        wav, sr = librosa.load(filename, sr=16000, mono=True)
-        return wav, sr
-
-    def extract_speech_segments(self, audio_path):
-        waveform, sr = self.load_wav_16k_mono(audio_path)
+    def extract_speech_segments(self, waveform, sr):
         waveform_tf = tf.convert_to_tensor(waveform, dtype=tf.float32)
         scores, _, _ = self.yamnet_model(waveform_tf)
-        return self._process_scores(scores.numpy(), sr), waveform, sr
+        return self._process_scores(scores.numpy(), sr)
 
     def _process_scores(self, scores, sr):
         top_class_indices = np.argmax(scores, axis=1)
