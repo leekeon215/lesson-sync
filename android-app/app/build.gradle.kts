@@ -1,16 +1,8 @@
 plugins {
-    alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.kotlin.compose)
-    alias(libs.plugins.hilt.android)
-    kotlin("kapt")
+    id("com.android.application")
+    kotlin("android")
 }
-configurations.all {
-    resolutionStrategy {
-        // Hilt ?ï†?Ö∏?Öå?ù¥?Öò Ï≤òÎ¶¨ ?ãú ?Ç¨?ö©?ïò?äî JavaPoet?ùÑ 1.13.0?úºÎ°? Í∞ïÏ†ú
-        force("com.squareup:javapoet:1.13.0")
-    }
-}
+
 android {
     namespace = "com.lessonsync.app"
     compileSdk = 35
@@ -21,58 +13,35 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
-
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
-    buildTypes {
-        release {
-            isMinifyEnabled = false
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
-        }
+    buildFeatures {
+        compose = true
     }
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+    composeOptions {
+        kotlinCompilerExtensionVersion = "1.5.1"
     }
     kotlinOptions {
         jvmTarget = "11"
     }
-    buildFeatures {
-        compose = true
-    }
 }
 
 dependencies {
+    // Compose BOM ÏÇ¨Ïö©
+    implementation(platform("androidx.compose:compose-bom:2024.03.00"))
 
-    implementation(libs.androidx.core.ktx)
-    implementation(libs.androidx.lifecycle.runtime.ktx)
-    implementation(libs.androidx.activity.compose)
-    implementation(platform(libs.androidx.compose.bom))
-    implementation(libs.androidx.ui)
-    implementation(libs.androidx.ui.graphics)
-    implementation(libs.androidx.ui.tooling.preview)
-    implementation(libs.androidx.material3)
-    implementation("com.google.dagger:hilt-android:2.51")
-    implementation(libs.androidx.animation.core.lint)
-    kapt("com.google.dagger:hilt-compiler:2.51") {
-        // Hilt∞° ≤¯æÓø¿¥¬ √÷Ω≈ JavaPoet ∏µ‚¿ª ¡¶ø‹
-        exclude(group = "com.squareup", module = "javapoet")
-    }
-    // ±∏πˆ¿¸ JavaPoet¿ª ¡˜¡¢ √ﬂ∞°
-    implementation("com.squareup:javapoet:1.13.0")
-    implementation("androidx.navigation:navigation-compose:2.7.7")
-    implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
+    // AndroidX ÏΩîÏñ¥/ÎùºÏù¥ÌîÑÏÇ¨Ïù¥ÌÅ¥/Activity
+    implementation("androidx.core:core-ktx:1.9.0")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.6.2")
+    implementation("androidx.activity:activity-compose:1.7.1")
 
-    testImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.junit)
-    androidTestImplementation(libs.androidx.espresso.core)
-    androidTestImplementation(platform(libs.androidx.compose.bom))
-    androidTestImplementation(libs.androidx.ui.test.junit4)
-    debugImplementation(libs.androidx.ui.tooling)
-    debugImplementation(libs.androidx.ui.test.manifest)
+    // Compose UI
+    implementation("androidx.compose.ui:ui")
+    implementation("androidx.compose.ui:ui-tooling-preview")
+    implementation("androidx.compose.material3:material3")
 
+    // (ÏÑ†ÌÉù) ÎÑ§ÎπÑÍ≤åÏù¥ÏÖò Ïª¥Ìè¨Ï¶à
+    implementation("androidx.navigation:navigation-compose:2.7.0")
+
+    debugImplementation("androidx.compose.ui:ui-tooling")
 }
