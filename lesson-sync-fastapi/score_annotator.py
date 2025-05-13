@@ -39,14 +39,12 @@ def parse_annotations(text: str) -> List[Tuple[int, str]]:
 
 
 def annotate_score(
-    text: str,
+    annotations: List[Tuple[int, str]],
     xml_path: str
 ) -> str:
     
     if not os.path.isfile(xml_path):
         raise FileNotFoundError(f"Input MusicXML file not found: {xml_path}")
-
-    annotations = parse_annotations(text)
 
     score: stream.Score = converter.parse(xml_path)
 

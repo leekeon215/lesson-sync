@@ -2,8 +2,7 @@ from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import JSONResponse
 from audio_processor import AudioProcessor
 from summary_service import SummaryService
-from summary_parsing import parse_annotations
-from add_annotation import annotate_score
+from score_annotator import annotate_score
 import tempfile
 import os
 
