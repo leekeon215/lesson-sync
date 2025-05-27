@@ -3,8 +3,8 @@ from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import JSONResponse
 from audio_processor import AudioProcessor
 from summary_service import SummaryService
-from summary_parsing import parse_annotations
-from add_annotation import annotate_score
+#from summary_parsing import parse_annotations
+#from add_annotation import annotate_score
 import tempfile
 import os
 import librosa
@@ -44,7 +44,7 @@ async def process_lesson(file: UploadFile = File(...)):
             content={"message": f"처리 실패: {str(e)}"}
         )
     finally:
-        os.remove(tmp_path)
+        print("레슨 요약")
 
 # @app.post("/make-annotation")
 # async def make_annotation():

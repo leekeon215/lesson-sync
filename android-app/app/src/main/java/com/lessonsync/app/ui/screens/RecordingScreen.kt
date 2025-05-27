@@ -1,28 +1,21 @@
 package com.lessonsync.app.ui.screens
 
 import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Environment
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -31,8 +24,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -40,172 +33,194 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.app.ActivityCompat
+import androidx.media3.common.util.Log
+import androidx.media3.common.util.UnstableApi
 import androidx.navigation.NavHostController
-import androidx.navigation.compose.rememberNavController
+import com.lessonsync.app.audio.WavAudioRecorder
 import com.lessonsync.app.navigation.Screen
-import com.lessonsync.app.navigation.demoScores
-import com.lessonsync.app.ui.theme.LessonSyncTheme
-import kotlinx.coroutines.delay
+import com.lessonsync.app.retrofit.RetrofitClient
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.asRequestBody
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
+@androidx.annotation.OptIn(UnstableApi::class)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecordingScreen(navController: NavHostController, scoreId: String) {
-    val score = demoScores.find { it.id == scoreId }
+    val context = LocalContext.current
+    var isRecording by remember { mutableStateOf(false) }
+    var recordingTime by remember { mutableStateOf("00:00") }
+    var outputFile by remember { mutableStateOf<File?>(null) }
+    var wavRecorder by remember { mutableStateOf<WavAudioRecorder?>(null) }
 
-    // 녹음 상태: true(녹음중/일시정지), false(정지됨)
-    var isRecordingActive by remember { mutableStateOf(true) }
-    // 재생 상태: true(재생/녹음중), false(일시정지)
-    var isPlaying by remember { mutableStateOf(true) }
-    var recordingTime by remember { mutableStateOf("00:00") } // TODO: 실제 녹음 시간 연동
+    fun startRecording(context: Context, scoreId: String) {
+        val file = createOutputFile(context, scoreId)
+        outputFile = file
+        wavRecorder = WavAudioRecorder(
+            outputFile = file,
+            sampleRate = 16000,
+            channelConfig = android.media.AudioFormat.CHANNEL_IN_MONO,
+            audioEncoding = android.media.AudioFormat.ENCODING_PCM_16BIT
+        ).apply {
+            if (ActivityCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.RECORD_AUDIO
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                return
+            }
+            startRecording()
+            isRecording = true
+        }
+    }
 
+    // 파일 업로드 처리
+    fun uploadRecording(file: File, scoreId: String) {
+        val requestFile = file.asRequestBody("audio/wav".toMediaTypeOrNull())
+        val body = MultipartBody.Part.createFormData(
+            "file",  // 서버에서 기대하는 필드 이름
+            file.name,
+            requestFile
+        )
+
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val response = RetrofitClient.audioService.processLessonCoroutine(body)
+                if (response.isSuccessful) {
+                    Log.d("UPLOAD_SUCCESS", "Server response: ${response.body()?.string()}")
+                    withContext(Dispatchers.Main) {
+                        navController.navigate(Screen.Processing.route)
+                    }
+                } else {
+                    Log.e("UPLOAD_ERROR", "Server error: ${response.errorBody()?.string()}")
+                }
+            } catch (e: Exception) {
+                Log.e("UPLOAD_EXCEPTION", "Network error: ${e.localizedMessage}")
+            }
+        }
+    }
+
+    fun stopRecording() {
+        wavRecorder?.stopRecording()
+        isRecording = false
+        outputFile?.let { uploadRecording(it, scoreId) }
+    }
+
+    // 권한 처리
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
-        onResult = { isGranted ->
-            if (isGranted) {
-                // TODO: 권한 허용 시 녹음 시작 로직
-                isRecordingActive = true
-                isPlaying = true
+        onResult = { granted ->
+            if (granted) {
+                startRecording(context, scoreId)
             } else {
-                // TODO: 권한 거부 시 처리 (예: 이전 화면으로 돌아가거나 안내 메시지)
                 navController.popBackStack()
             }
         }
     )
 
-    LaunchedEffect(Unit) {
-        permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-    }
-
-    // 녹음 시간 시뮬레이션 (실제로는 녹음 라이브러리와 연동)
-    LaunchedEffect(isPlaying, isRecordingActive) {
-        if (isPlaying && isRecordingActive) {
-            var seconds = 0
-            while (isPlaying && isRecordingActive) {
-                delay(1000)
-                seconds++
-                val mins = seconds / 60
-                val secs = seconds % 60
-                recordingTime = String.format("%02d:%02d", mins, secs)
-            }
+    // 녹음 시간 업데이트
+    LaunchedEffect(isRecording) {
+        var seconds = 0
+        while (isRecording) {
+            kotlinx.coroutines.delay(1000)
+            seconds++
+            recordingTime = seconds.toTimeFormat()
         }
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(score?.title ?: Screen.Recording.title) }, // 악보 제목 표시
+                title = { Text("녹음 진행 중") },
                 navigationIcon = {
                     IconButton(onClick = {
-                        // TODO: 녹음 중단 확인 로직 또는 바로 중단
-                        isRecordingActive = false
-                        isPlaying = false
+                        if (isRecording) stopRecording()
                         navController.popBackStack()
                     }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "녹음 중단")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "뒤로 가기")
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
-                    titleContentColor = MaterialTheme.colorScheme.onSurface,
-                    navigationIconContentColor = MaterialTheme.colorScheme.onSurface
-                ),
-                windowInsets = WindowInsets(0.dp)
+                }
             )
-        },
-        containerColor = MaterialTheme.colorScheme.background
+        }
     ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
+                .padding(paddingValues),
+            verticalArrangement = Arrangement.SpaceBetween,
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // 악보 렌더링 영역
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f) // 남은 공간 차지
-                    .padding(8.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White), // 악보는 흰색 배경
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-            ) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    // TODO: 악보 렌더링 (ScoreViewerScreen과 동일한 로직 사용 가능)
-                    Text("[악보 렌더링 영역]", color = Color.Black)
-                }
-            }
+            Spacer(modifier = Modifier.height(40.dp))
 
-            // 하단 컨트롤 바
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 24.dp) // 패딩 증가
-                    .height(56.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceEvenly // 버튼들 균등 배치
-            ) {
-                // 녹음 시간 표시
-                Text(
-                    text = recordingTime,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
+            Text(
+                text = recordingTime,
+                style = MaterialTheme.typography.displayLarge
+            )
+
+            IconButton(
+                onClick = { stopRecording() },
+                modifier = Modifier.size(80.dp),
+                colors = IconButtonDefaults.iconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                    contentColor = MaterialTheme.colorScheme.onErrorContainer
                 )
-
-                Spacer(modifier = Modifier.width(16.dp))
-
-                // 재생/일시정지 버튼
-                IconButton(
-                    onClick = { isPlaying = !isPlaying },
-                    modifier = Modifier.size(56.dp), // 버튼 크기
-                    colors = IconButtonDefaults.iconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
-                ) {
-                    Icon(
-                        imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                        contentDescription = if (isPlaying) "일시정지" else "계속 녹음",
-                        modifier = Modifier.size(32.dp)
-                    )
-                }
-
-                // 정지 버튼
-                IconButton(
-                    onClick = {
-                        isRecordingActive = false
-                        isPlaying = false
-                        // 녹음 완료 후 ProcessingScreen으로 이동
-                        navController.navigate(Screen.Processing.route) {
-                            // RecordingScreen을 백스택에서 제거
-                            popUpTo(Screen.Recording.route + "/$scoreId") { inclusive = true }
-                        }
-                    },
-                    modifier = Modifier.size(56.dp),
-                    colors = IconButtonDefaults.iconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer, // 정지 버튼은 error 계열 색상 사용
-                        contentColor = MaterialTheme.colorScheme.onErrorContainer
-                    )
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Stop,
-                        contentDescription = "녹음 정지 및 완료",
-                        modifier = Modifier.size(32.dp)
-                    )
-                }
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Stop,
+                    contentDescription = "녹음 정지",
+                    modifier = Modifier.size(48.dp)
+                )
             }
+
+            Spacer(modifier = Modifier.height(40.dp))
+        }
+    }
+
+    // 권한 체크 및 녹음 시작
+    LaunchedEffect(Unit) {
+        if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) ==
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            startRecording(context, scoreId)
+        } else {
+            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
+
+    // 컴포저블 종료 시 리소스 정리
+    DisposableEffect(Unit) {
+        onDispose {
+            if (isRecording) {
+                stopRecording()
+            }
+            wavRecorder = null
         }
     }
 }
 
-@Preview(showBackground = true)
-@Composable
-fun RecordingScreenPreview() {
-    LessonSyncTheme {
-        RecordingScreen(navController = rememberNavController(), scoreId = "1")
-    }
+// 출력 파일 생성
+private fun createOutputFile(context: Context, scoreId: String): File {
+    val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+    return File(
+        context.getExternalFilesDir(Environment.DIRECTORY_MUSIC),
+        "REC_${scoreId}_$timeStamp.wav"
+    ).apply { parentFile?.mkdirs() }
+}
+
+// 시간 포맷 변환
+private fun Int.toTimeFormat(): String {
+    val minutes = this / 60
+    val seconds = this % 60
+    return "%02d:%02d".format(minutes, seconds)
 }
