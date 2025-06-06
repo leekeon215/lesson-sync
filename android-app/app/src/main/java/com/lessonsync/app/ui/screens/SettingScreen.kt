@@ -1,5 +1,6 @@
 package com.lessonsync.app.ui.screens
 
+import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -34,12 +35,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.lessonsync.app.navigation.Screen
 import com.lessonsync.app.ui.theme.LessonSyncTheme
+import androidx.core.content.edit
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,6 +60,9 @@ fun SettingScreen(
 
     var lessonSummaryNotificationEnabled by remember { mutableStateOf(true) }
     // 'darkModeEnabled' 로컬 상태 변수 대신 전달받은 'currentDarkTheme' 사용
+
+    val context = LocalContext.current
+    val prefs = context.getSharedPreferences("LessonSyncPrefs", Context.MODE_PRIVATE)
 
     Scaffold(
         topBar = {
@@ -124,7 +130,10 @@ fun SettingScreen(
             SettingToggleRow(
                 label = "레슨 요약 완료 시 알림",
                 isChecked = lessonSummaryNotificationEnabled,
-                onCheckedChange = { lessonSummaryNotificationEnabled = it }
+                onCheckedChange = {
+                    lessonSummaryNotificationEnabled = it
+                    prefs.edit { putBoolean("lessonSummaryNotification", it) }
+                }
             )
             HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
 
