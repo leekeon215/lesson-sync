@@ -53,6 +53,7 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import androidx.core.content.edit
 
 @androidx.annotation.OptIn(UnstableApi::class)
 @OptIn(ExperimentalMaterial3Api::class)
@@ -88,19 +89,19 @@ fun RecordingScreen(navController: NavHostController, scoreId: String) {
     // 파일 업로드 처리
     fun uploadRecording(file: File, scoreId: String) {
         val requestFile = file.asRequestBody("audio/wav".toMediaTypeOrNull())
-        val body = MultipartBody.Part.createFormData(
-            "file",  // 서버에서 기대하는 필드 이름
-            file.name,
-            requestFile
-        )
+        val body = MultipartBody.Part.createFormData("file", file.name, requestFile)
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val response = RetrofitClient.audioService.processLessonCoroutine(body)
                 if (response.isSuccessful) {
-                    Log.d("UPLOAD_SUCCESS", "Server response: ${response.body()?.string()}")
+                    val responseString = response.body()?.string()
+                    if (responseString != null) {
+                        val prefs = context.getSharedPreferences("LessonSyncPrefs", Context.MODE_PRIVATE)
+                        prefs.edit { putString("summaryJson_$scoreId", responseString) }
+                    }
                     withContext(Dispatchers.Main) {
-                        navController.navigate(Screen.Processing.route)
+                        navController.navigate(Screen.Processing.route + "/$scoreId")
                     }
                 } else {
                     Log.e("UPLOAD_ERROR", "Server error: ${response.errorBody()?.string()}")
@@ -110,6 +111,7 @@ fun RecordingScreen(navController: NavHostController, scoreId: String) {
             }
         }
     }
+
 
     fun stopRecording() {
         wavRecorder?.stopRecording()

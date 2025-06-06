@@ -1,59 +1,108 @@
 package com.lessonsync.app.ui.screens
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import android.app.AlarmManager
+import android.app.PendingIntent
+import android.content.Context
+import android.content.Intent
+import android.os.SystemClock
+import android.widget.Toast
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.navigation.NavHostController
-import androidx.navigation.compose.rememberNavController
 import com.lessonsync.app.navigation.Screen
-import com.lessonsync.app.ui.theme.LessonSyncTheme
+import com.lessonsync.app.noitification.LessonNotificationReceiver
 import kotlinx.coroutines.delay
+import androidx.core.content.edit
 
 @Composable
-fun ProcessingScreen(navController: NavHostController) {
-    // TODO: 실제 scoreId를 이전 화면에서 전달받아 ReviewScreen으로 넘겨야 함
-    val tempScoreIdForNavigation = "1" // 임시 ID
+fun ProcessingScreen(navController: NavHostController, scoreId: String) {
+    val context = LocalContext.current
+    var showNotificationPermissionDialog by remember { mutableStateOf(false) }
+    var isProcessingFinished by remember { mutableStateOf(false) }
+    var isBackPressed by remember { mutableStateOf(false) }
 
-    LaunchedEffect(Unit) {
-        delay(3000) // 3초 딜레이 (시뮬레이션)
-        // ScoreViewer 화면을 백스택에서 찾아 제거하고 Review 화면으로 이동
-        navController.popBackStack(Screen.ScoreViewer.route + "/$tempScoreIdForNavigation", inclusive = true, saveState = false)
-        // inclusive = true 로 하면 ScoreViewer도 스택에서 제거됨.
-        // 만약 ScoreViewer로 돌아가고 싶다면 inclusive = false 또는 popUpTo 사용
-        navController.navigate(Screen.Review.route + "/$tempScoreIdForNavigation")
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (!isGranted) {
+            showNotificationPermissionDialog = true
+        }
     }
 
-    Scaffold( // Scaffold를 사용하여 배경색 등 테마 적용
-        containerColor = MaterialTheme.colorScheme.surface // 이미지의 흰색 배경
-    ) { paddingValues ->
+    LaunchedEffect(Unit) {
+        // 알림 권한 요청 (Android 13 이상)
+        if (ContextCompat.checkSelfPermission(
+                context,
+                android.Manifest.permission.POST_NOTIFICATIONS
+            ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+        }
+
+        // 항상 백그라운드 알림 예약
+        val prefs = context.getSharedPreferences("LessonSyncPrefs", Context.MODE_PRIVATE)
+        if (prefs.getBoolean("lessonSummaryNotification", true)) {
+            scheduleNotification(context, scoreId)
+        }
+
+        delay(5000) // 서버 응답 시뮬레이션 (예: 5초 후 응답 도착)
+        isProcessingFinished = true
+
+        // 응답 도착 여부를 SharedPreferences에 저장
+        context.getSharedPreferences("LessonSyncPrefs", Context.MODE_PRIVATE)
+            .edit {
+                putBoolean("summaryReady_$scoreId", true)
+            }
+
+        if (!isBackPressed) {
+            navController.popBackStack(Screen.ScoreViewer.route + "/$scoreId", inclusive = false)
+            navController.navigate(Screen.Review.route + "/$scoreId")
+        } else {
+            // 뒤로가기로 빠져나가더라도 알림은 이미 예약됨 (중복 예약 방지 가능)
+        }
+    }
+
+    BackHandler {
+        isBackPressed = true
+        navController.popBackStack(Screen.ScoreViewer.route + "/$scoreId", inclusive = false)
+    }
+
+    if (showNotificationPermissionDialog) {
+        AlertDialog(
+            onDismissRequest = { showNotificationPermissionDialog = false },
+            confirmButton = {
+                TextButton(onClick = { showNotificationPermissionDialog = false }) {
+                    Text("확인")
+                }
+            },
+            title = { Text("알림 권한 필요") },
+            text = { Text("레슨 요약 알림을 받기 위해 알림 권한이 필요합니다. 설정에서 권한을 허용해주세요.") }
+        )
+    }
+
+    Scaffold(containerColor = MaterialTheme.colorScheme.surface) { paddingValues ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues),
             contentAlignment = Alignment.Center
         ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                // 이미지에는 없지만, 로딩 인디케이터 추가
-                // CircularProgressIndicator(modifier = Modifier.size(48.dp))
-                // Spacer(Modifier.height(24.dp))
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                CircularProgressIndicator()
+                Spacer(modifier = Modifier.height(24.dp))
                 Text(
-                    text = "변환 및 주석 삽입 중 ...", // 이미지의 텍스트
+                    text = "레슨 분석 중...",
                     style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
                     textAlign = TextAlign.Center
                 )
             }
@@ -61,10 +110,21 @@ fun ProcessingScreen(navController: NavHostController) {
     }
 }
 
-@Preview(showBackground = true)
-@Composable
-fun ProcessingScreenPreview() {
-    LessonSyncTheme {
-        ProcessingScreen(navController = rememberNavController())
+fun scheduleNotification(context: Context, scoreId: String) {
+    val intent = Intent(context, LessonNotificationReceiver::class.java).apply {
+        putExtra("scoreId", scoreId)
     }
+    val pendingIntent = PendingIntent.getBroadcast(
+        context,
+        1001,
+        intent,
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+    )
+
+    val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+    alarmManager.set(
+        AlarmManager.ELAPSED_REALTIME_WAKEUP,
+        SystemClock.elapsedRealtime() + 10000,
+        pendingIntent
+    )
 }

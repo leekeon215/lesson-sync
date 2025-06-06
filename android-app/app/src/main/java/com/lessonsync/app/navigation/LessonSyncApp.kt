@@ -48,7 +48,10 @@ fun LessonSyncApp(
                 val id = backStackEntry.arguments?.getString("id") ?: ""
                 RecordingScreen(navController, id)
             }
-            composable(Screen.Processing.route) { ProcessingScreen(navController) }
+            composable(Screen.Processing.route + "/{id}") { backStackEntry ->
+                val id = backStackEntry.arguments?.getString("id") ?: ""
+                ProcessingScreen(navController, id)
+            }
             composable(Screen.Review.route + "/{id}") { backStackEntry ->
                 val id = backStackEntry.arguments?.getString("id") ?: ""
                 ReviewScreen(navController, id)

@@ -1,5 +1,6 @@
 package com.lessonsync.app.ui.screens
 
+import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -24,8 +25,14 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -33,6 +40,7 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.lessonsync.app.ui.theme.LessonSyncTheme
+import org.json.JSONObject
 
 // 데이터 클래스 예시
 data class LessonSummaryItem(val title: String, val content: String)
@@ -58,69 +66,139 @@ val samplePracticeTips = listOf(
 )
 
 
+//@OptIn(ExperimentalMaterial3Api::class)
+//@Composable
+//fun ReviewScreen(navController: NavHostController, scoreId: String) {
+//    // TODO: scoreId를 사용하여 실제 레슨 요약 데이터 로드
+//    val lessonTitle = "바이올린 레슨 요약" // 예시 제목
+//
+//    Scaffold(
+//        topBar = {
+//            TopAppBar(
+//                title = { Text(lessonTitle) },
+//                navigationIcon = {
+//                    IconButton(onClick = { navController.popBackStack() }) {
+//                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "뒤로 가기")
+//                    }
+//                },
+//                colors = TopAppBarDefaults.topAppBarColors(
+//                    containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+//                    titleContentColor = MaterialTheme.colorScheme.onSurface,
+//                    navigationIconContentColor = MaterialTheme.colorScheme.onSurface
+//                )
+//            )
+//        },
+//        containerColor = MaterialTheme.colorScheme.background
+//    ) { paddingValues ->
+//        LazyColumn(
+//            modifier = Modifier
+//                .fillMaxSize()
+//                .padding(paddingValues)
+//                .padding(horizontal = 16.dp, vertical = 8.dp),
+//            verticalArrangement = Arrangement.spacedBy(16.dp)
+//        ) {
+//            item {
+//                Row(verticalAlignment = Alignment.CenterVertically) {
+//                    Icon(
+//                        imageVector = Icons.Filled.MusicNote, // 예시 아이콘
+//                        contentDescription = null,
+//                        tint = MaterialTheme.colorScheme.primary,
+//                        modifier = Modifier.size(36.dp)
+//                    )
+//                    Spacer(modifier = Modifier.width(8.dp))
+//                    Text(
+//                        text = lessonTitle, // "🎻 바이올린 레슨 요약" 와 같은 형태로도 가능
+//                        style = MaterialTheme.typography.headlineSmall,
+//                        fontWeight = FontWeight.Bold
+//                    )
+//                }
+//                Spacer(modifier = Modifier.height(8.dp))
+//            }
+//
+//            items(sampleSummary) { item ->
+//                SummarySection(title = item.title, content = item.content)
+//            }
+//
+//            item { HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp)) }
+//
+//            items(samplePracticeTips) { tip ->
+//                PracticeTipSection(category = tip.category, points = tip.points)
+//            }
+//
+//            item { Spacer(modifier = Modifier.height(16.dp)) } // 하단 여백
+//        }
+//    }
+//}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReviewScreen(navController: NavHostController, scoreId: String) {
-    // TODO: scoreId를 사용하여 실제 레슨 요약 데이터 로드
-    val lessonTitle = "바이올린 레슨 요약" // 예시 제목
+    val context = LocalContext.current
+    var summaryText by remember { mutableStateOf("요약을 불러오는 중...") }
+    var speechSegments by remember { mutableStateOf<List<String>>(emptyList()) }
+
+    LaunchedEffect(scoreId) {
+        val prefs = context.getSharedPreferences("LessonSyncPrefs", Context.MODE_PRIVATE)
+        val jsonString = prefs.getString("summaryJson_$scoreId", null)
+
+        if (jsonString != null) {
+            try {
+                val json = JSONObject(jsonString)
+                summaryText = json.optString("summary", "요약 없음")
+                val segmentsArray = json.optJSONArray("speech_segments")
+                if (segmentsArray != null) {
+                    val segments = mutableListOf<String>()
+                    for (i in 0 until segmentsArray.length()) {
+                        segments.add(segmentsArray.getString(i))
+                    }
+                    speechSegments = segments
+                }
+            } catch (e: Exception) {
+                summaryText = "요약 데이터를 해석하는 데 실패했습니다."
+            }
+        } else {
+            summaryText = "서버로부터 받은 요약 정보가 없습니다."
+        }
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(lessonTitle) },
+                title = { Text("레슨 요약 보기") },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "뒤로 가기")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "뒤로 가기")
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
-                    titleContentColor = MaterialTheme.colorScheme.onSurface,
-                    navigationIconContentColor = MaterialTheme.colorScheme.onSurface
-                )
+                }
             )
-        },
-        containerColor = MaterialTheme.colorScheme.background
+        }
     ) { paddingValues ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Filled.MusicNote, // 예시 아이콘
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(36.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = lessonTitle, // "🎻 바이올린 레슨 요약" 와 같은 형태로도 가능
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold
-                    )
+                Text("📝 레슨 요약", style = MaterialTheme.typography.titleLarge)
+                Text(summaryText)
+            }
+
+            if (speechSegments.isNotEmpty()) {
+                item {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("🎙️ 발화 구간", style = MaterialTheme.typography.titleLarge)
                 }
-                Spacer(modifier = Modifier.height(8.dp))
+
+                items(speechSegments) { segment ->
+                    Text("• $segment", style = MaterialTheme.typography.bodyLarge)
+                }
             }
-
-            items(sampleSummary) { item ->
-                SummarySection(title = item.title, content = item.content)
-            }
-
-            item { HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp)) }
-
-            items(samplePracticeTips) { tip ->
-                PracticeTipSection(category = tip.category, points = tip.points)
-            }
-
-            item { Spacer(modifier = Modifier.height(16.dp)) } // 하단 여백
         }
     }
 }
+
 
 @Composable
 fun SummarySection(title: String, content: String) {

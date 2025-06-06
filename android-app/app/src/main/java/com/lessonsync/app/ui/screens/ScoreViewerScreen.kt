@@ -1,5 +1,7 @@
 package com.lessonsync.app.ui.screens
 
+import android.content.Context
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -40,6 +42,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,6 +51,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -75,6 +79,17 @@ fun ScoreViewerScreen(navController: NavHostController, scoreId: String) {
     val topBarBackgroundColor = MaterialTheme.colorScheme.surfaceContainerLowest
     val bottomControlsBackgroundColor = MaterialTheme.colorScheme.surfaceContainer
 
+    val context = LocalContext.current
+    val prefs = context.getSharedPreferences("LessonSyncPrefs", Context.MODE_PRIVATE)
+    val isSummaryReady = remember {
+        mutableStateOf(prefs.getBoolean("summaryReady_$scoreId", false))
+    }
+
+    LaunchedEffect(Unit) {
+        // 최신 상태 반영 위해 SharedPreferences를 다시 확인
+        isSummaryReady.value = prefs.getBoolean("summaryReady_$scoreId", false)
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -96,7 +111,14 @@ fun ScoreViewerScreen(navController: NavHostController, scoreId: String) {
                         ),
                         modifier = Modifier.padding(horizontal = 4.dp)
                     )
-                    IconButton(onClick = { navController.navigate(Screen.Review.route + "/$scoreId") }) {
+
+                    IconButton(onClick = {
+                        if (isSummaryReady.value) {
+                            navController.navigate(Screen.Review.route + "/$scoreId")
+                        } else {
+                            Toast.makeText(context, "아직 요약이 완료되지 않았습니다.", Toast.LENGTH_SHORT).show()
+                        }
+                    }) {
                         Icon(Icons.AutoMirrored.Filled.Note, "레슨 요약 보기", tint = MaterialTheme.colorScheme.onSurface)
                     }
                 },
