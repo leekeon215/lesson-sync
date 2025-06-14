@@ -1,38 +1,48 @@
+// android-app/app/src/main/java/com/lessonsync/app/navigation/LessonSyncApp.kt
 package com.lessonsync.app.navigation
 
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.lessonsync.app.ui.screens.AddScoreScreen
-import com.lessonsync.app.ui.screens.HomeScreen
-import com.lessonsync.app.ui.screens.ManualAnnotationScreen
-import com.lessonsync.app.ui.screens.ProcessingScreen
-import com.lessonsync.app.ui.screens.RecordingScreen
-import com.lessonsync.app.ui.screens.ReviewScreen
-import com.lessonsync.app.ui.screens.ScoreViewerScreen
-import com.lessonsync.app.ui.screens.SearchScreen
-import com.lessonsync.app.ui.screens.SettingScreen
-import com.lessonsync.app.ui.screens.SummaryScreen
+import com.lessonsync.app.ui.screens.*
+import com.lessonsync.app.viewmodel.LessonViewModel
+import com.lessonsync.app.viewmodel.ScoreViewModel
 
 @Composable
 fun LessonSyncApp(
-    currentDarkTheme: Boolean, // 현재 다크 모드 상태를 전달받음
-    onToggleDarkTheme: (Boolean) -> Unit // 다크 모드 상태 변경 함수를 전달받음
+    currentDarkTheme: Boolean,
+    onToggleDarkTheme: (Boolean) -> Unit
 ) {
     val navController = rememberNavController()
+    // 공통으로 사용할 ViewModel 인스턴스 생성
+    val lessonViewModel: LessonViewModel = viewModel()
+    val scoreViewModel: ScoreViewModel = viewModel()
+
+
     Scaffold { innerPadding ->
         NavHost(
             navController = navController,
             startDestination = Screen.Home.route,
             modifier = Modifier.padding(innerPadding)
         ) {
-            composable(Screen.Home.route) { HomeScreen(navController) }
-            composable(Screen.Search.route) { SearchScreen(navController) }
-            // SettingScreen으로 다크 모드 상태와 토글 함수 전달
+            // 각 화면에 동일한 ViewModel 인스턴스를 전달합니다.
+            composable(Screen.Home.route) {
+                HomeScreen(navController, scoreViewModel) // scoreViewModel 전달
+            }
+
+            composable(Screen.AddScore.route) {
+                AddScoreScreen(navController, scoreViewModel) // scoreViewModel 전달
+            }
+
+            composable(Screen.Search.route) {
+                SearchScreen(navController, scoreViewModel)
+            }
+
             composable(Screen.Settings.route) {
                 SettingScreen(
                     navController = navController,
@@ -46,15 +56,18 @@ fun LessonSyncApp(
             }
             composable(Screen.Recording.route + "/{id}") { backStackEntry ->
                 val id = backStackEntry.arguments?.getString("id") ?: ""
-                RecordingScreen(navController, id)
+                // lessonViewModel 전달
+                RecordingScreen(navController, id, lessonViewModel)
             }
             composable(Screen.Processing.route + "/{id}") { backStackEntry ->
                 val id = backStackEntry.arguments?.getString("id") ?: ""
-                ProcessingScreen(navController, id)
+                // lessonViewModel 전달
+                ProcessingScreen(navController, id, lessonViewModel)
             }
             composable(Screen.Review.route + "/{id}") { backStackEntry ->
                 val id = backStackEntry.arguments?.getString("id") ?: ""
-                ReviewScreen(navController, id)
+                // lessonViewModel 전달
+                ReviewScreen(navController, id, lessonViewModel)
             }
             composable(Screen.ManualAnnotation.route + "/{id}") { backStackEntry ->
                 val id = backStackEntry.arguments?.getString("id") ?: ""
@@ -64,7 +77,6 @@ fun LessonSyncApp(
                 val id = backStackEntry.arguments?.getString("id") ?: ""
                 SummaryScreen(navController, id)
             }
-            composable(Screen.AddScore.route) { AddScoreScreen(navController) }
         }
     }
 }
