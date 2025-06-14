@@ -30,40 +30,41 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
-import androidx.media3.common.util.Log
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.media3.common.util.UnstableApi
 import androidx.navigation.NavHostController
 import com.lessonsync.app.audio.WavAudioRecorder
 import com.lessonsync.app.navigation.Screen
-import com.lessonsync.app.retrofit.RetrofitClient
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import okhttp3.MediaType.Companion.toMediaTypeOrNull
-import okhttp3.MultipartBody
-import okhttp3.RequestBody.Companion.asRequestBody
+import com.lessonsync.app.viewmodel.LessonViewModel
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import androidx.core.content.edit
+import kotlinx.coroutines.launch
 
 @androidx.annotation.OptIn(UnstableApi::class)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RecordingScreen(navController: NavHostController, scoreId: String) {
+fun RecordingScreen(
+    navController: NavHostController,
+    scoreId: String,
+    lessonViewModel: LessonViewModel = viewModel()
+) {
     val context = LocalContext.current
     var isRecording by remember { mutableStateOf(false) }
     var recordingTime by remember { mutableStateOf("00:00") }
     var outputFile by remember { mutableStateOf<File?>(null) }
-    var wavRecorder by remember { mutableStateOf<WavAudioRecorder?>(null) }
+    var wavRecorder: WavAudioRecorder? by remember { mutableStateOf(null) }
+
+    // Composable에서 코루틴을 실행하기 위해 CoroutineScope 생성
+    val scope = rememberCoroutineScope()
 
     fun startRecording(context: Context, scoreId: String) {
         val file = createOutputFile(context, scoreId)
@@ -86,37 +87,16 @@ fun RecordingScreen(navController: NavHostController, scoreId: String) {
         }
     }
 
-    // 파일 업로드 처리
-    fun uploadRecording(file: File, scoreId: String) {
-        val requestFile = file.asRequestBody("audio/wav".toMediaTypeOrNull())
-        val body = MultipartBody.Part.createFormData("file", file.name, requestFile)
-
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val response = RetrofitClient.audioService.processLessonCoroutine(body)
-                if (response.isSuccessful) {
-                    val responseString = response.body()?.string()
-                    if (responseString != null) {
-                        val prefs = context.getSharedPreferences("LessonSyncPrefs", Context.MODE_PRIVATE)
-                        prefs.edit { putString("summaryJson_$scoreId", responseString) }
-                    }
-                    withContext(Dispatchers.Main) {
-                        navController.navigate(Screen.Processing.route + "/$scoreId")
-                    }
-                } else {
-                    Log.e("UPLOAD_ERROR", "Server error: ${response.errorBody()?.string()}")
-                }
-            } catch (e: Exception) {
-                Log.e("UPLOAD_EXCEPTION", "Network error: ${e.localizedMessage}")
+    // stopRecording 로직을 코루틴 내에서 실행하도록 변경
+    fun stopRecording() {
+        scope.launch {
+            wavRecorder?.stopRecording() // suspend 함수 호출
+            isRecording = false
+            outputFile?.let {
+                lessonViewModel.uploadAndProcessRecording(it)
+                navController.navigate(Screen.Processing.route + "/$scoreId")
             }
         }
-    }
-
-
-    fun stopRecording() {
-        wavRecorder?.stopRecording()
-        isRecording = false
-        outputFile?.let { uploadRecording(it, scoreId) }
     }
 
     // 권한 처리
@@ -147,8 +127,9 @@ fun RecordingScreen(navController: NavHostController, scoreId: String) {
                 title = { Text("녹음 진행 중") },
                 navigationIcon = {
                     IconButton(onClick = {
+                        // 뒤로가기 시에도 녹음이 진행중이면 중지
                         if (isRecording) stopRecording()
-                        navController.popBackStack()
+                        else navController.popBackStack()
                     }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "뒤로 가기")
                     }
@@ -160,7 +141,7 @@ fun RecordingScreen(navController: NavHostController, scoreId: String) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues),
-            verticalArrangement = Arrangement.SpaceBetween,
+            verticalArrangement = Arrangement.SpaceAround,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(modifier = Modifier.height(40.dp))
@@ -204,9 +185,9 @@ fun RecordingScreen(navController: NavHostController, scoreId: String) {
     DisposableEffect(Unit) {
         onDispose {
             if (isRecording) {
-                stopRecording()
+                // onDispose는 suspend 함수를 직접 호출할 수 없으므로,
+                isRecording = false // 단순히 플래그만 변경
             }
-            wavRecorder = null
         }
     }
 }

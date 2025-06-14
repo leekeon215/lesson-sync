@@ -5,27 +5,49 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.SystemClock
-import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.core.content.edit
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import com.lessonsync.app.entity.LessonUiState
 import com.lessonsync.app.navigation.Screen
 import com.lessonsync.app.noitification.LessonNotificationReceiver
+import com.lessonsync.app.viewmodel.LessonViewModel
 import kotlinx.coroutines.delay
-import androidx.core.content.edit
 
 @Composable
-fun ProcessingScreen(navController: NavHostController, scoreId: String) {
+fun ProcessingScreen(
+    navController: NavHostController,
+    scoreId: String,
+    lessonViewModel: LessonViewModel = viewModel()
+) {
     val context = LocalContext.current
     var showNotificationPermissionDialog by remember { mutableStateOf(false) }
     var isProcessingFinished by remember { mutableStateOf(false) }
@@ -36,6 +58,29 @@ fun ProcessingScreen(navController: NavHostController, scoreId: String) {
     ) { isGranted ->
         if (!isGranted) {
             showNotificationPermissionDialog = true
+        }
+    }
+
+    val uiState by lessonViewModel.uiState.collectAsStateWithLifecycle()
+
+    // uiState가 변경될 때마다 실행
+    LaunchedEffect(uiState) {
+        when (uiState) {
+            is LessonUiState.Success -> {
+                // 성공 시 ReviewScreen으로 이동
+                // 이전 화면 스택을 정리하고 싶다면 popUpTo 사용
+                navController.navigate(Screen.Review.route + "/$scoreId") {
+                    popUpTo(Screen.Home.route)
+                }
+            }
+            is LessonUiState.Error -> {
+                // 에러 처리 (예: Toast 메시지, 이전 화면으로 복귀)
+                // Toast.makeText(context, (uiState as LessonUiState.Error).message, Toast.LENGTH_LONG).show()
+                navController.popBackStack()
+            }
+            else -> {
+                // Loading 또는 Idle 상태
+            }
         }
     }
 
@@ -90,6 +135,7 @@ fun ProcessingScreen(navController: NavHostController, scoreId: String) {
         )
     }
 
+    // 로딩 중 UI
     Scaffold(containerColor = MaterialTheme.colorScheme.surface) { paddingValues ->
         Box(
             modifier = Modifier
@@ -108,6 +154,7 @@ fun ProcessingScreen(navController: NavHostController, scoreId: String) {
             }
         }
     }
+
 }
 
 fun scheduleNotification(context: Context, scoreId: String) {

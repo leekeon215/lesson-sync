@@ -58,11 +58,13 @@ class WavAudioRecorder(
             try {
                 FileOutputStream(pcmFile).use { outputStream ->
                     val buffer = ByteArray(bufferSize)
+                    // isRecording이 false가 될 때까지 루프
                     while (isRecording) {
                         val bytesRead = audioRecord!!.read(buffer, 0, bufferSize)
                         if (bytesRead > 0) outputStream.write(buffer, 0, bytesRead)
                     }
                 }
+                // 루프가 끝나면 .wav 파일로 변환
                 convertToWav(pcmFile)
             } finally {
                 pcmFile.delete()
@@ -71,10 +73,15 @@ class WavAudioRecorder(
         }
     }
 
-    fun stopRecording() {
+    suspend fun stopRecording() {
         if (!isRecording) return
         isRecording = false
-        recordingJob?.cancel()
+
+        // 실행 중인 recordingJob이 끝날 때까지 기다림
+        // 이렇게 하면 파일 변환 및 저장이 완료되는 것을 보장할 수 있음
+        recordingJob?.join()
+
+        // audioRecord는 join() 이후에 중지
         audioRecord?.stop()
     }
 
