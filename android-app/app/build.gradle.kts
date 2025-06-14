@@ -1,6 +1,11 @@
 plugins {
     id("com.android.application")
+    id("org.jetbrains.kotlin.kapt")
     kotlin("android")
+    // KSP 플러그인을 버전 카탈로그 별칭으로 적용
+    alias(libs.plugins.kotlin.ksp)
+    // Compose 컴파일러 플러그인 추가
+    alias(libs.plugins.kotlin.compose.compiler)
 }
 
 android {
@@ -17,9 +22,6 @@ android {
 
     buildFeatures {
         compose = true
-    }
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.1"
     }
 
     compileOptions {
@@ -60,13 +62,22 @@ dependencies {
     implementation(libs.logging.interceptor)
     implementation(libs.androidx.media3.common.ktx)
 
-    // 테스트 및 디버깅 도구
-    testImplementation("junit:junit:4.13.2")
-    androidTestImplementation("androidx.test.ext:junit:1.1.5")
-    androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
-    androidTestImplementation(platform("androidx.compose:compose-bom:2024.05.00"))
-    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    implementation(libs.okhttp)
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.lifecycle.livedata.ktx)
+    implementation(libs.androidx.runtime.livedata)
+    annotationProcessor(libs.androidx.room.compiler)
+    implementation(libs.androidx.room.ktx)
+    kapt(libs.androidx.room.compiler)
 
-    debugImplementation("androidx.compose.ui:ui-tooling")
-    debugImplementation("androidx.compose.ui:ui-test-manifest")
+
+    // 테스트 및 디버깅 도구
+    testImplementation(libs.junit)
+    androidTestImplementation(libs.androidx.junit.v115)
+    androidTestImplementation(libs.androidx.espresso.core.v351)
+    androidTestImplementation(platform(libs.androidx.compose.bom.v20240500))
+    androidTestImplementation(libs.ui.test.junit4)
+
+    debugImplementation(libs.ui.tooling)
+    debugImplementation(libs.ui.test.manifest)
 }
