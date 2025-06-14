@@ -1,9 +1,8 @@
 package com.lessonsync.app.ui.screens
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement // Arrangement 임포트 추가
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -34,7 +33,8 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf // selectedBottomNavItem 상태 관리를 위해 추가
+import androidx.compose.runtime.livedata.observeAsState
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -45,48 +45,36 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.navigation.NavController // NavController 타입으로 변경
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import com.lessonsync.app.entity.ScoreEntity
 import com.lessonsync.app.navigation.Screen
 import com.lessonsync.app.ui.theme.LessonSyncTheme
-
-// MxlFile 데이터 클래스: 악보 파일 정보를 담음 (id와 이름)
-data class MxlFile(val id: String, val name: String)
-
-// "삭제화면" 이미지에 있는 한국어 파일 목록으로 업데이트된 더미 데이터
-val demoFilesFromImage = listOf(
-    MxlFile("1", "소나타 Op.13"),
-    MxlFile("2", "왈츠 Op.64"),
-    MxlFile("3", "Minuet_No.3"),
-    MxlFile("4", "캐논 변주곡"),
-    MxlFile("5", "Greensleeves"),
-    MxlFile("6", "El Condor Pasa"),
-    MxlFile("7", "Summer"),
-    MxlFile("8", "인생의 회전목마"),
-    MxlFile("9", "World's Smallest Violin"),
-    MxlFile("10", "Jingle Bells")
-)
+import com.lessonsync.app.viewmodel.ScoreViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(navController: NavController) { // NavController 타입으로 변경
-    // 하단 네비게이션 바에서 현재 선택된 아이템 인덱스를 저장하는 상태 변수
-    var selectedBottomNavItem by remember { mutableIntStateOf(0) } // 초기값 0 (Explore)
-    // 하단 네비게이션 아이템 목록 정의
+fun HomeScreen(
+    navController: NavController,
+    scoreViewModel: ScoreViewModel = viewModel() // ViewModel 주입
+) {
+    // ViewModel의 LiveData를 관찰하여 DB의 악보 목록을 실시간으로 가져옴
+    val currentFiles by scoreViewModel.allScores.observeAsState(initial = emptyList())
+
+    // 하단 네비게이션 바 상태 관리
+    var selectedBottomNavItem by remember { mutableIntStateOf(0) }
     val bottomNavItems = listOf(
         BottomNavItem("Explore", Icons.Outlined.Folder, Screen.Home.route),
         BottomNavItem("Settings", Icons.Outlined.Settings, Screen.Settings.route)
     )
 
     // 앱 바 및 하단 바의 배경색
-    val appBarColor = Color(0xFFF5EAFE)
+    val appBarColor = MaterialTheme.colorScheme.surfaceContainerLowest
 
-    // 삭제 모드 활성화 여부
+    // 삭제 모드 상태 관리
     var isSelectionModeActive by remember { mutableStateOf(false) }
-    // 선택된 악보들의 ID 리스트
-    val selectedScoreIds = remember { mutableStateListOf<String>() }
-    // 현재 화면에 표시할 악보 목록
-    val currentFiles = remember { mutableStateListOf(*demoFilesFromImage.toTypedArray()) }
+    val selectedScoreIds = remember { mutableStateListOf<Int>() }
 
     Scaffold(
         topBar = {
@@ -95,7 +83,7 @@ fun HomeScreen(navController: NavController) { // NavController 타입으로 변
                 TopAppBar(
                     title = {
                         Text(
-                            "LessonSync",
+                            "${selectedScoreIds.size}개 선택됨", // 선택된 항목 수 표시
                             modifier = Modifier.fillMaxWidth(),
                             textAlign = TextAlign.Center
                         )
@@ -110,7 +98,8 @@ fun HomeScreen(navController: NavController) { // NavController 타입으로 변
                     },
                     actions = {
                         IconButton(onClick = {
-                            currentFiles.removeAll { file -> selectedScoreIds.contains(file.id) }
+                            // ViewModel을 통해 DB에서 선택된 항목들 삭제
+                            scoreViewModel.deleteByIds(selectedScoreIds.toList())
                             isSelectionModeActive = false
                             selectedScoreIds.clear()
                         }) {
@@ -119,11 +108,7 @@ fun HomeScreen(navController: NavController) { // NavController 타입으로 변
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = appBarColor,
-                        titleContentColor = MaterialTheme.colorScheme.onSurface,
-                        navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
-                        actionIconContentColor = MaterialTheme.colorScheme.onSurface
-                    ),
-                    windowInsets = WindowInsets(0.dp)
+                    )
                 )
             } else {
                 // 일반 모드 TopAppBar
@@ -150,18 +135,13 @@ fun HomeScreen(navController: NavController) { // NavController 타입으로 변
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = appBarColor,
-                        titleContentColor = MaterialTheme.colorScheme.onSurface,
-                        navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
-                        actionIconContentColor = MaterialTheme.colorScheme.onSurface
-                    ),
-                    windowInsets = WindowInsets(0.dp)
+                    )
                 )
             }
         },
         bottomBar = {
             NavigationBar(
-                containerColor = appBarColor,
-                contentColor = MaterialTheme.colorScheme.onSurface
+                containerColor = appBarColor
             ) {
                 bottomNavItems.forEachIndexed { index, item ->
                     NavigationBarItem(
@@ -170,9 +150,7 @@ fun HomeScreen(navController: NavController) { // NavController 타입으로 변
                             selectedBottomNavItem = index
                             if (item.route.isNotEmpty()) {
                                 navController.navigate(item.route) {
-                                    popUpTo(navController.graph.startDestinationId) {
-                                        saveState = true
-                                    }
+                                    popUpTo(navController.graph.startDestinationId) { saveState = true }
                                     launchSingleTop = true
                                     restoreState = true
                                 }
@@ -181,11 +159,7 @@ fun HomeScreen(navController: NavController) { // NavController 타입으로 변
                         icon = { Icon(item.icon, item.label) },
                         label = { Text(item.label) },
                         colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                            selectedTextColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                            indicatorColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f),
-                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            indicatorColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f)
                         )
                     )
                 }
@@ -207,11 +181,8 @@ fun HomeScreen(navController: NavController) { // NavController 타입으로 변
                     onItemClick = {
                         if (isSelectionModeActive) {
                             // 삭제 모드: 선택 토글
-                            if (isSelected) {
-                                selectedScoreIds.remove(file.id)
-                            } else {
-                                selectedScoreIds.add(file.id)
-                            }
+                            if (isSelected) selectedScoreIds.remove(file.id)
+                            else selectedScoreIds.add(file.id)
                         } else {
                             // 일반 모드: ScoreViewerScreen으로 이동 (악보 ID 전달)
                             navController.navigate(Screen.ScoreViewer.route + "/${file.id}")
@@ -226,57 +197,48 @@ fun HomeScreen(navController: NavController) { // NavController 타입으로 변
 
 @Composable
 fun ScoreListItem(
-    file: MxlFile,
+    file: ScoreEntity, // 데이터 타입을 ScoreEntity로 변경
     isSelected: Boolean,
     isSelectionModeActive: Boolean,
     onItemClick: () -> Unit,
-    modifier: Modifier = Modifier // Modifier 파라미터 추가
+    modifier: Modifier = Modifier
 ) {
     Row(
-        modifier = modifier // 전달받은 modifier 사용
+        modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onItemClick) // 클릭 리스너 적용
+            .clickable(onClick = onItemClick)
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween // 추가: 텍스트와 아이콘을 양 끝으로
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        // 삭제 모드일 때 체크박스 표시
         if (isSelectionModeActive) {
             Checkbox(
                 checked = isSelected,
-                onCheckedChange = { onItemClick() }, // 체크박스 클릭도 onItemClick으로 처리
+                onCheckedChange = { onItemClick() },
                 modifier = Modifier.padding(end = 16.dp),
                 colors = CheckboxDefaults.colors(
-                    checkedColor = MaterialTheme.colorScheme.primary,
-                    uncheckedColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    checkedColor = MaterialTheme.colorScheme.primary
                 )
             )
         }
-        // 악보 이름
         Text(
-            text = file.name,
+            text = file.title, // ScoreEntity의 title 필드 사용
             style = MaterialTheme.typography.bodyLarge,
-            // Modifier.weight(1f)는 삭제 모드 체크박스 유무에 따라 레이아웃이 달라질 수 있으므로,
-            // Arrangement.SpaceBetween과 함께 사용 시 주의.
-            // 여기서는 SpaceBetween을 사용하므로 weight 제거 또는 조건부 적용 고려.
-            // 만약 체크박스가 없을 때 텍스트가 공간을 다 차지하게 하려면 아래와 같이 조건부로 weight 적용
-            modifier = if (isSelectionModeActive) Modifier else Modifier.weight(1f)
+            modifier = Modifier.weight(1f)
         )
-        // 일반 모드일 때만 오른쪽 화살표 아이콘 표시
         if (!isSelectionModeActive) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                contentDescription = "악보 보기: ${file.name}",
+                contentDescription = "악보 보기: ${file.title}",
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
 }
 
-// 하단 네비게이션 아이템 데이터 클래스
 data class BottomNavItem(
     val label: String,
-    val icon: androidx.compose.ui.graphics.vector.ImageVector, // ImageVector 타입 명시
+    val icon: androidx.compose.ui.graphics.vector.ImageVector,
     val route: String
 )
 
