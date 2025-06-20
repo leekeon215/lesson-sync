@@ -3,10 +3,9 @@ from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import JSONResponse
 from audio_processor import AudioProcessor
 from summary_service import SummaryService
-#from summary_parsing import parse_annotations
-#from add_annotation import annotate_score
-import tempfile
-import os
+from pydantic import BaseModel
+from typing import List
+from score_annotator import parse_annotations
 import librosa
 import io
 
@@ -46,13 +45,25 @@ async def process_lesson(file: UploadFile = File(...)):
     finally:
         print("레슨 요약")
 
-# @app.post("/make-annotation")
-# async def make_annotation():
-    # annotations = parse_annotations("부드럽게 20번째 마디에서 시작해. 12 마디 빠르게.")
+# --- API 요청/응답 Body를 위한 Pydantic 모델 ---
+class AnnotationRequest(BaseModel):
+    text: str
 
-    # # 2) 원본 MusicXML 파일 경로
-    # input_xml  = "input.musicxml"
-    # # 3) 주석이 달린 결과물 경로
-    # output_xml = "annotated_output.musicxml"
+class AnnotationInfo(BaseModel):
+    measure: int
+    directive: str
 
-    # annotate_score(input_xml, annotations, output_xml)
+class AnnotationResponse(BaseModel):
+    annotations: List[AnnotationInfo]
+
+@app.post("/parse-directives", response_model=AnnotationResponse)
+async def parse_directives_from_text(req: AnnotationRequest):
+    if not req.text:
+        raise HTTPException(status_code=400, detail="Text cannot be empty")
+    
+    # 이미 구현된 파싱 함수를 호출
+    annotations = parse_annotations(req.text)
+    
+    # 파싱된 결과를 JSON으로 반환
+    # 예: [{"measure": 5, "directive": "빠르게"}]
+    return {"annotations": annotations}

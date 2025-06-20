@@ -1,78 +1,60 @@
-import io
-import os
 import re
 from typing import List, Tuple
 from konlpy.tag import Okt
-from music21 import converter, expressions, stream
 
+# Okt 형태소 분석기 초기화
 okt = Okt()
 
-_MEASURE_RE = re.compile(r"(\d+)\s*(?:번째\s*)?마디(?:에|에서|의)?")
+# '마디 8'과 '8 마디'를 모두 찾을 수 있도록 정규식 확장
+_MEASURE_RE = re.compile(r"(?:(\d+)\s*(?:번째\s*)?마디|마디\s*(\d+))")
+
+# 지시어에서 제외할 불용어 리스트
+_STOP_WORDS = {'그리고', '그래서', '하지만', '그러나', '근데', '이제', '먼저', '음'}
 
 def parse_annotations(text: str) -> List[Tuple[int, str]]:
     """
-    주어진 텍스트에서 마디 번호와 지시어(부사/형용사)를 추출하여
-    (마디 번호, 지시어) 리스트로 반환합니다.
+    [최종 완성 버전]
+    Okt 형태소 분석기를 사용하여, '마디'가 포함된 구문 전체를 분석하고
+    불필요한 품사를 제거하여 가장 정확한 지시어를 추출합니다.
+
+    Args:
+        text (str): STT를 통해 변환된 전체 레슨 대화 텍스트
+
+    Returns:
+        List[Tuple[int, str]]: [(마디번호, 지시어), ...] 형식의 리스트
     """
-    annotations: List[Tuple[int, str]] = []
-    seen = set()
-
-    for m in _MEASURE_RE.finditer(text):
-        measure = int(m.group(1))
-        if measure in seen:
+    annotations = []
+    
+    clauses = re.split(r"[,.?!]", text)
+    
+    for clause in clauses:
+        clause = clause.strip()
+        if not clause:
             continue
-        seen.add(measure)
+            
+        match = _MEASURE_RE.search(clause)
+        
+        if match:
+            # 두 개의 캡처 그룹 중 숫자가 있는 그룹에서 값을 가져옴
+            measure_str = match.group(1) or match.group(2)
+            if not measure_str:
+                continue
+            measure = int(measure_str)
+            
+            if any(ann[0] == measure for ann in annotations):
+                continue
 
-        # 패턴 뒤 텍스트에서 쉼표나 마침표 전까지 추출
-        suffix = re.split(r"[,。.?!]", text[m.end():], maxsplit=1)[0].strip()
-        tokens = okt.pos(suffix)
-        adv_adj = [w for w, p in tokens if p in ('Adverb', 'Adjective')]
+            tokens = okt.pos(clause)
+            
+            meaningful_words = []
+            for word, pos in tokens:
+                if pos not in ['Number', 'Josa', 'Conjunction', 'Suffix', 'Punctuation', 'Foreign'] and word not in ['마디', '번째']:
+                    if word not in _STOP_WORDS:
+                        meaningful_words.append(word)
 
-        if adv_adj:
-            directive = ''.join(adv_adj)
-        else:
-            # 패턴 앞 텍스트에서 마지막 문장 조각 추출
-            prefix = re.split(r"[,。.?!]", text[:m.start()])[-1].strip()
-            tokens2 = okt.pos(prefix)
-            adv_adj2 = [w for w, p in tokens2 if p in ('Adverb', 'Adjective')]
-            directive = ''.join(adv_adj2) if adv_adj2 else suffix
-
-        annotations.append((measure, directive))
+            directive = " ".join(meaningful_words).strip()
+            
+            if directive:
+                annotations.append((measure, directive))
 
     return sorted(annotations, key=lambda x: x[0])
-
-
-def annotate_score(
-    annotations: List[Tuple[int, str]],
-    xml_path: str
-) -> str:
-    """
-    주석 리스트와 MusicXML(.xml 또는 .mxl) 파일 경로를 받아,
-    압축된 MXL 포맷의 바이너리를 반환합니다.
-
-    :param annotations: [(measure_number, directive_text), ...]
-    :param xml_path: 입력 MusicXML(.xml 또는 .mxl) 파일 경로
-    :return: 주석이 삽입된 .mxl 바이너리
-    """
-    if not os.path.isfile(xml_path):
-        raise FileNotFoundError(f"Input MusicXML file not found: {xml_path}")
-
-    # MusicXML(.xml/.mxl) 로드
-    score: stream.Score = converter.parse(xml_path)
-
-    # 주석 삽입
-    for part in score.parts:
-        measures = part.getElementsByClass('Measure')
-        for measure_num, directive in annotations:
-            idx = measure_num - 1
-            if 0 <= idx < len(measures):
-                te = expressions.TextExpression(directive)
-                te.style.color = 'blue'
-                measures[idx].insert(0.0, te)
-
-    # 메모리 버퍼에 MXL 압축 포맷으로 쓰기
-    # buf = io.BytesIO()
-    base, _ = os.path.splitext(xml_path)
-    buf = f"{base}_annotated.mxl"
-    score.write('mxl', fp=buf)
-    return buf
