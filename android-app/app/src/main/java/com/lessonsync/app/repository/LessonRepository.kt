@@ -1,7 +1,10 @@
 package com.lessonsync.app.repository
 
 import AudioService
+import com.lessonsync.app.entity.AnnotationInfo
+import com.lessonsync.app.entity.AnnotationRequest
 import com.lessonsync.app.entity.LessonData
+import com.lessonsync.app.retrofit.RetrofitClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -25,6 +28,21 @@ class LessonRepository(private val audioService: AudioService) {
                 }
             } catch (e: Exception) {
                 Result.failure(Exception("네트워크 오류: ${e.message}"))
+            }
+        }
+    }
+
+    suspend fun fetchAnnotations(request: AnnotationRequest): Result<List<AnnotationInfo>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val response = RetrofitClient.scoreService.getAnnotations(request)
+                if (response.isSuccessful && response.body() != null) {
+                    Result.success(response.body()!!.annotations)
+                } else {
+                    Result.failure(Exception("Failed to fetch annotations: ${response.code()}"))
+                }
+            } catch (e: Exception) {
+                Result.failure(Exception("Network error while fetching annotations: ${e.message}"))
             }
         }
     }
