@@ -11,27 +11,26 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
-import androidx.navigation.compose.rememberNavController
 import com.lessonsync.app.entity.LessonUiState
-import com.lessonsync.app.ui.theme.LessonSyncTheme
 import com.lessonsync.app.viewmodel.LessonViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReviewScreen(
     navController: NavHostController,
-    scoreId: String,
-    lessonViewModel: LessonViewModel // ViewModel을 파라미터로 받음
+    scoreId: String, // scoreId는 유지 (어떤 악보에 대한 요약인지 식별용)
+    lessonViewModel: LessonViewModel = viewModel()
 ) {
-    // ViewModel의 UI 상태를 구독합니다.
+    // ViewModel의 UI 상태를 구독
     val uiState by lessonViewModel.uiState.collectAsStateWithLifecycle()
 
-    // 이 화면을 벗어날 때 ViewModel의 상태를 초기화하여 다음 요청에 영향을 주지 않도록 합니다.
+    // 이 화면을 벗어날 때 ViewModel의 상태를 초기화하여
+    // 다음 요청에 영향을 주지 않도록 함
     DisposableEffect(Unit) {
         onDispose {
             lessonViewModel.resetState()
@@ -41,7 +40,7 @@ fun ReviewScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("레슨 요약 및 분석") },
+                title = { Text("레슨 요약") }, // 제목 변경
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "뒤로 가기")
@@ -49,8 +48,6 @@ fun ReviewScreen(
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
-                    titleContentColor = MaterialTheme.colorScheme.onSurface,
-                    navigationIconContentColor = MaterialTheme.colorScheme.onSurface
                 )
             )
         },
@@ -60,31 +57,30 @@ fun ReviewScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
+                .padding(16.dp) // 전체적인 패딩 추가
         ) {
-            // UI 상태에 따라 다른 화면을 보여줍니다.
+            // UI 상태에 따라 다른 화면을 표시
             when (val state = uiState) {
                 is LessonUiState.Success -> {
-                    // 성공 시, 서버에서 받은 데이터로 UI를 구성합니다.
-                    val lessonData = state.lessonData
+                    // 성공 시, 서버에서 받은 요약 데이터로 UI를 구성
                     LazyColumn(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalArrangement = Arrangement.spacedBy(24.dp)
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         // summary가 null이 아니면 표시
-                        if (!lessonData.summary.isNullOrBlank()) {
+                        state.lessonData.summary?.let { summary ->
                             item {
-                                ReviewSection(title = "📝 레슨 요약", content = lessonData.summary)
+                                ReviewSection(title = "📝 레슨 요약", content = summary)
                             }
                         }
 
-                        if (!lessonData.speechSegments.isNullOrEmpty()) {
-                            item {
-                                ReviewSection(
-                                    title = "🎙️ 발화 구간 분석",
-                                    content = lessonData.speechSegments.joinToString("\n") { "• ${it.text}" }
-                                )
+                        // speechSegments가 null이 아니면 표시 (발화 구간 텍스트)
+                        state.lessonData.speechSegments?.let { segments ->
+                            if (segments.isNotEmpty()) {
+                                item {
+                                    val fullTranscript = segments.joinToString("\n") { "• ${it.text}" }
+                                    ReviewSection(title = "🎙️ 전체 발화 내용", content = fullTranscript)
+                                }
                             }
                         }
                     }
@@ -101,8 +97,9 @@ fun ReviewScreen(
                         Text(state.message)
                     }
                 }
-                else -> {
-                    // Idle 또는 Loading 상태 (보통 ProcessingScreen에서 처리되지만 안전장치)
+                is LessonUiState.Loading, LessonUiState.Idle -> {
+                    // 로딩 중 또는 초기 상태
+                    // (보통 ProcessingScreen에서 처리되지만, 직접 이 화면에 올 경우를 대비)
                     Column(
                         modifier = Modifier.fillMaxSize(),
                         verticalArrangement = Arrangement.Center,
@@ -118,6 +115,7 @@ fun ReviewScreen(
     }
 }
 
+// ReviewSection Composable은 재사용
 @Composable
 fun ReviewSection(title: String, content: String) {
     Column {
