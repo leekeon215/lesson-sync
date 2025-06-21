@@ -89,12 +89,24 @@ fun RecordingScreen(
 
     // stopRecording 로직을 코루틴 내에서 실행하도록 변경
     fun stopRecording() {
+        if (!isRecording) return
+
         scope.launch {
-            wavRecorder?.stopRecording() // suspend 함수 호출
+            wavRecorder?.stopRecording()
             isRecording = false
-            outputFile?.let {
-                lessonViewModel.uploadAndProcessRecording(it)
-                navController.navigate(Screen.Processing.route + "/$scoreId")
+            outputFile?.let { file ->
+                // String 타입의 scoreId를 Int로 변환
+                val scoreIdInt = scoreId.toIntOrNull()
+                if (scoreIdInt != null) {
+                    // [수정] scoreId와 file을 모두 올바른 순서로 전달
+                    lessonViewModel.uploadAndProcessRecording(scoreIdInt, file)
+
+                    navController.navigate(Screen.Processing.route + "/$scoreId") {
+                        popUpTo(Screen.Recording.route + "/$scoreId") { inclusive = true }
+                    }
+                } else {
+                    // scoreId가 숫자가 아닐 경우의 오류 처리 (예: Toast 메시지)
+                }
             }
         }
     }
