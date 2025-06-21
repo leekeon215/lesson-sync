@@ -11,7 +11,7 @@ import retrofit2.http.POST
  */
 interface ScoreService {
 
-    @POST("scores/parse-directives")
+    @POST("parse-directives")
     suspend fun getAnnotations(
         @Body request: AnnotationRequest
     ): Response<AnnotationResponse>

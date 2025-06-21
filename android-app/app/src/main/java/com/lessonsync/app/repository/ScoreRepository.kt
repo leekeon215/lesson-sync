@@ -1,5 +1,8 @@
 package com.lessonsync.app.repository
 
+import com.lessonsync.app.entity.AnnotationEntity
+import com.lessonsync.app.entity.AnnotationInfo
+import com.lessonsync.app.entity.LessonResultEntity
 import com.lessonsync.app.entity.ScoreDao
 import com.lessonsync.app.entity.ScoreEntity
 import kotlinx.coroutines.Dispatchers
@@ -36,5 +39,39 @@ class ScoreRepository(private val scoreDao: ScoreDao) {
 
     fun searchScores(query: String): Flow<List<ScoreEntity>> {
         return scoreDao.searchScores(query)
+    }
+
+    // --- [신규] 분석 결과를 DB에 저장하는 함수 ---
+    suspend fun saveLessonAnalysis(
+        scoreId: Int,
+        summary: String,
+        transcript: String,
+        annotations: List<AnnotationInfo>
+    ) {
+        withContext(Dispatchers.IO) {
+            // 새 분석 결과를 저장하기 전에 이전 결과가 있다면 삭제
+            scoreDao.deletePreviousLessonResult(scoreId)
+            scoreDao.deletePreviousAnnotations(scoreId)
+
+            // 새 레슨 결과 Entity 생성 및 저장
+            val lessonResult = LessonResultEntity(
+                scoreOwnerId = scoreId,
+                summary = summary,
+                fullTranscript = transcript
+            )
+            scoreDao.insertLessonResult(lessonResult)
+
+            // 새 주석 Entity 리스트 생성 및 저장
+            if (annotations.isNotEmpty()) {
+                val annotationEntities = annotations.map {
+                    AnnotationEntity(
+                        scoreOwnerId = scoreId,
+                        measureNumber = it.measure,
+                        directive = it.directive
+                    )
+                }
+                scoreDao.insertAnnotations(annotationEntities)
+            }
+        }
     }
 }

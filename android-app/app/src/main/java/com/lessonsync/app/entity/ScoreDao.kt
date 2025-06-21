@@ -27,4 +27,24 @@ interface ScoreDao {
 
     @Query("SELECT * FROM scores WHERE title LIKE :searchQuery")
     fun searchScores(searchQuery: String): Flow<List<ScoreEntity>>
+
+    //LessonResult 및 Annotation 저장을 위한 함수
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun insertLessonResult(lessonResult: LessonResultEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun insertAnnotations(annotations: List<AnnotationEntity>)
+
+    @Query("SELECT * FROM lesson_results WHERE scoreOwnerId = :scoreId LIMIT 1")
+    fun getLessonResultForScore(scoreId: Int): Flow<LessonResultEntity?>
+
+    @Query("SELECT * FROM annotations WHERE scoreOwnerId = :scoreId")
+    fun getAnnotationsForScore(scoreId: Int): Flow<List<AnnotationEntity>>
+
+    // 이전 분석 결과가 있다면 삭제하기 위한 함수
+    @Query("DELETE FROM lesson_results WHERE scoreOwnerId = :scoreId")
+    fun deletePreviousLessonResult(scoreId: Int)
+
+    @Query("DELETE FROM annotations WHERE scoreOwnerId = :scoreId")
+    fun deletePreviousAnnotations(scoreId: Int)
 }
