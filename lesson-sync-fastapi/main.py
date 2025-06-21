@@ -8,6 +8,10 @@ from typing import List
 from score_annotator import parse_annotations
 import librosa
 import io
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="LessonSync FastAPI Server")
 audio_processor = AudioProcessor()
@@ -43,7 +47,7 @@ async def process_lesson(file: UploadFile = File(...)):
             content={"message": f"처리 실패: {str(e)}"}
         )
     finally:
-        print("레슨 요약")
+        logger.info("레슨 요약 완료")
 
 # --- API 요청/응답 Body를 위한 Pydantic 모델 ---
 class AnnotationRequest(BaseModel):
@@ -58,12 +62,16 @@ class AnnotationResponse(BaseModel):
 
 @app.post("/parse-directives", response_model=AnnotationResponse)
 async def parse_directives_from_text(req: AnnotationRequest):
+    # api 테스트 중엔 주석 처리
     if not req.text:
-        raise HTTPException(status_code=400, detail="Text cannot be empty")
+        raise HTTPException(status_code=400, detail="Text cannot be empty") 
     
     # 이미 구현된 파싱 함수를 호출
+    logger.info("주석 파싱 시작")
     annotations = parse_annotations(req.text)
     
     # 파싱된 결과를 JSON으로 반환
     # 예: [{"measure": 5, "directive": "빠르게"}]
+    
+    logger.info("주석 파싱 완료")
     return {"annotations": annotations}
