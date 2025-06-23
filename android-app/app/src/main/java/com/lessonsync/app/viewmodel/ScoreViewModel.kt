@@ -8,7 +8,9 @@ import android.provider.OpenableColumns
 import androidx.lifecycle.*
 import androidx.lifecycle.asLiveData
 import com.lessonsync.app.database.LessonSyncDatabase
+import com.lessonsync.app.entity.AnnotationEntity
 import com.lessonsync.app.entity.ScoreEntity
+import com.lessonsync.app.repository.AnnotationRepository
 import com.lessonsync.app.repository.ScoreRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,27 +21,45 @@ import java.io.FileOutputStream
 
 class ScoreViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val repository: ScoreRepository
+    private val scoreRepository: ScoreRepository
+    private val annotationRepository: AnnotationRepository
 
     val allScores: LiveData<List<ScoreEntity>>
 
     private val _searchResults = MutableStateFlow<List<ScoreEntity>>(emptyList())
     val searchResults: StateFlow<List<ScoreEntity>> = _searchResults.asStateFlow()
 
+    private val _selectedScore = MutableStateFlow<ScoreEntity?>(null)
+    val selectedScore : StateFlow<ScoreEntity?> = _selectedScore.asStateFlow()
+
+    private val _annotations = MutableStateFlow<List<AnnotationEntity>>(emptyList())
+    val annotations: StateFlow<List<AnnotationEntity>> = _annotations.asStateFlow()
+
     init {
-        val scoreDao = LessonSyncDatabase.getDatabase(application).scoreDao()
-        repository = ScoreRepository(scoreDao)
-        allScores = repository.allScores.asLiveData()
+        val database = LessonSyncDatabase.getDatabase(application)
+        scoreRepository = ScoreRepository(database.scoreDao())
+        annotationRepository = AnnotationRepository(database.annotationDao())
+
+        allScores = scoreRepository.allScores.asLiveData()
     }
 
+    //악보를 추가하는 함수
     fun insert(score: ScoreEntity) = viewModelScope.launch {
-        repository.insert(score)
+        scoreRepository.insert(score)
     }
 
+    //특정 악보의 정보를 불러오는 함수(악보만)
+    fun getScoreById(id: Int) = viewModelScope.launch(Dispatchers.IO) {
+        val score = scoreRepository.getScoreById(id)
+        _selectedScore.value = score
+    }
+
+    //악보를 삭제하는 함수
     fun deleteByIds(ids: List<Int>) = viewModelScope.launch {
-        repository.deleteByIds(ids)
+        scoreRepository.deleteByIds(ids)
     }
 
+    //
     fun addScoreFromUri(uri: Uri) = viewModelScope.launch(Dispatchers.IO) {
         val context = getApplication<Application>().applicationContext
         val contentResolver = context.contentResolver
@@ -68,19 +88,65 @@ class ScoreViewModel(application: Application) : AndroidViewModel(application) {
             title = fileName.substringBeforeLast("."), // 확장자 제외
             filePath = internalFile.absolutePath // 앱 내부 경로 저장
         )
-        repository.insert(scoreEntity)
+        scoreRepository.insert(scoreEntity)
     }
 
+    // 악보 검색 기능
     fun searchScores(query: String) {
         viewModelScope.launch {
             if (query.isBlank()) {
                 _searchResults.value = emptyList()
             } else {
                 // LIKE 쿼리를 위해 앞뒤에 % 와일드카드 추가
-                repository.searchScores("%${query}%").collect { results ->
+                scoreRepository.searchScores("%${query}%").collect { results ->
                     _searchResults.value = results
                 }
             }
+        }
+    }
+
+    // --- 주석 및 통합 로딩 함수 ---
+
+    //주석 + 악보를 함께 불러오는 함수
+    fun loadScoreAndAnnotations(scoreId: Int) {
+        viewModelScope.launch(Dispatchers.IO) {
+            // 악보 정보 로드
+            _selectedScore.value = scoreRepository.getScoreById(scoreId)
+
+            // 주석 정보 로드 (Flow 구독 시작)
+            // Main 스레드에서 Flow를 구독해야 할 수 있으므로 launch 블록을 분리
+            launch {
+                annotationRepository.getAnnotationsForScore(scoreId).collect { annotationList ->
+                    _annotations.value = annotationList
+                }
+            }
+        }
+    }
+
+    // 악보에 달려있는 주석 다 불러오는 함수
+    fun loadAnnotationsForScore(scoreOwnerId: Int) {
+        viewModelScope.launch {
+            annotationRepository.getAnnotationsForScore(scoreOwnerId).collect { annotationList ->
+                _annotations.value = annotationList
+            }
+        }
+    }
+
+    fun addAnnotation(scoreOwnerId: Int, measureNumber: Int, directive: String) {
+        viewModelScope.launch {
+            // 5. scoreId 타입을 Int로 통일 (DAO가 Int를 받는다는 가정 하에)
+            val newAnnotation = AnnotationEntity(
+                scoreOwnerId = scoreOwnerId,
+                measureNumber = measureNumber,
+                directive = directive
+            )
+            annotationRepository.insert(newAnnotation)
+        }
+    }
+
+    fun deleteAnnotationsForScore(scoreId: Int) {
+        viewModelScope.launch {
+            annotationRepository.deleteAnnotationsForScore(scoreId)
         }
     }
 }

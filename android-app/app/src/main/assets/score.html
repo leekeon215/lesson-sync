@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.jsdelivr.net/npm/opensheetmusicdisplay@latest/build/opensheetmusicdisplay.min.js"></script>
+    <style>
+        body, html { margin: 0; padding: 0; }
+    </style>
+</head>
+<body>
+<div id="score-container" style="width: 100%;"></div>
+
+<script>
+    function highlightMeasure(measureNumber) {
+        const cursor = window.osmd ? window.osmd.cursor : undefined;
+        if (!cursor) {
+            console.log("OSMD cursor not ready.");
+            return;
+        }
+
+        // measureNumber가 null 또는 유효하지 않은 값이면 커서를 숨깁니다.
+        if (measureNumber === null || measureNumber < 1) {
+            cursor.hide();
+            return;
+        }
+
+        try {
+            // 1. 커서를 맨 처음으로 리셋합니다. (cursor.reset() 호출)
+            cursor.reset();
+
+            // 2. 목표 마디에 도달할 때까지 커서를 앞으로 감습니다. (cursor.next() 호출)
+            const targetMeasureIndex = measureNumber - 1;
+            while (cursor.iterator.currentMeasureIndex < targetMeasureIndex && !cursor.iterator.endReached) {
+                cursor.next();
+            }
+
+            // 3. 커서를 표시합니다. (update()는 next()와 reset()에 포함되어 있음)
+            cursor.show();
+            console.log("Cursor successfully moved to measure: " + measureNumber);
+
+        } catch (e) {
+            console.error("Error highlighting measure " + measureNumber + ": ", e);
+            cursor.hide();
+        }
+    }
+
+
+
+
+     /**
+      * 주석을 별도의 '확대/축소 가능한' 레이어에 추가하는 함수
+      */
+     function addAnnotationToMeasure(measureNumber, text) {
+         const osmd = window.osmd;
+         if (!osmd || !osmd.graphic) return;
+
+         const svgRoot = osmd.container.querySelector("svg");
+         if (!svgRoot) return;
+
+         let annotationLayer = svgRoot.querySelector("#annotation-layer");
+         if (!annotationLayer) {
+             annotationLayer = document.createElementNS("http://www.w3.org/2000/svg", "g");
+             annotationLayer.setAttribute("id", "annotation-layer");
+             svgRoot.appendChild(annotationLayer);
+             // 초기 줌 상태를 적용
+             scaleAnnotationLayer(osmd.zoom);
+         }
+
+         const measure = osmd.graphic.measureList[0][measureNumber - 1];
+         if (!measure) return;
+
+         const measurePos = measure.PositionAndShape.AbsolutePosition;
+         const x = measurePos.x * 10;
+         const y = measurePos.y * 10 - 5;
+
+         const svgText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+         svgText.setAttribute("x", x);
+         svgText.setAttribute("y", y);
+         svgText.setAttribute("font-size", "14px");
+         svgText.setAttribute("font-family", "Arial");
+         svgText.setAttribute("fill", "red");
+         svgText.setAttribute("class", "custom-annotation");
+         svgText.textContent = text;
+
+         annotationLayer.appendChild(svgText);
+     }
+
+     /**
+      * 주석 레이어의 크기를 조절하여 줌을 따라가게 하는 함수
+      */
+     function scaleAnnotationLayer(zoom) {
+         const annotationLayer = document.querySelector("#annotation-layer");
+         if (annotationLayer) {
+             annotationLayer.setAttribute('transform', 'scale(' + zoom + ')');
+         }
+     }
+
+     function toggleAnnotations(shouldShow) {
+         const annotationLayer = document.querySelector("#annotation-layer");
+         if (annotationLayer) {
+             annotationLayer.style.visibility = shouldShow ? 'visible' : 'hidden';
+         }
+     }
+
+     function clearAllAnnotations() {
+         const annotationLayer = document.querySelector("#annotation-layer");
+         if (annotationLayer) {
+             annotationLayer.innerHTML = '';
+         }
+     }
+</script>
+</body>
+</html>
