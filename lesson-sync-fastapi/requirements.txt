@@ -21,9 +21,6 @@ pandas
 pydantic==2.11.4
 pydantic_core==2.33.2
 Pygments==2.19.1
-pytest
-pytest-asyncio
-pytest-mock
 python-dotenv==1.1.0
 python-multipart==0.0.20
 PyYAML==6.0.2

@@ -74,21 +74,13 @@ fun ReviewScreen(
                             }
                         }
 
-                        item {
-                            // correctedTranscript가 있으면 그것을 표시
-                            if (!state.lessonData.correctedTranscript.isNullOrBlank()) {
-                                ReviewSection(
-                                    title = "🎙️ 전체 발화 내용",
-                                    content = state.lessonData.correctedTranscript
-                                )
-                            }
-                            // correctedTranscript가 없으면 (이전 버전 호환 등), 기존 방식대로 speechSegments를 조합해 표시
-                            else if (!state.lessonData.speechSegments.isNullOrEmpty()) {
-                                val fullTranscript = state.lessonData.speechSegments.joinToString("\n") { "• ${it.text}" }
-                                ReviewSection(
-                                    title = "🎙️ 전체 발화 내용 (원본)",
-                                    content = fullTranscript
-                                )
+                        // speechSegments가 null이 아니면 표시 (발화 구간 텍스트)
+                        state.lessonData.speechSegments?.let { segments ->
+                            if (segments.isNotEmpty()) {
+                                item {
+                                    val fullTranscript = segments.joinToString("\n") { "• ${it.text}" }
+                                    ReviewSection(title = "🎙️ 전체 발화 내용", content = fullTranscript)
+                                }
                             }
                         }
                     }
