@@ -9,6 +9,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navigation
 import com.lessonsync.app.ui.screens.*
 import com.lessonsync.app.viewmodel.LessonViewModel
 import com.lessonsync.app.viewmodel.ScoreViewModel
@@ -50,10 +51,28 @@ fun LessonSyncApp(
                     onToggleDarkTheme = onToggleDarkTheme
                 )
             }
-            composable(Screen.ScoreViewer.route + "/{id}") { backStackEntry ->
-                val id = backStackEntry.arguments?.getString("id") ?: ""
-                ScoreViewerScreen(navController, id)
+
+            navigation(
+                startDestination = Screen.ScoreViewer.route + "/{id}",
+                route = "score_details_graph" // 이 그래프의 고유한 route 이름
+            ) {
+                composable(Screen.ScoreViewer.route + "/{id}") { backStackEntry ->
+                    val id = backStackEntry.arguments?.getString("id") ?: ""
+                    ScoreViewerScreen(navController = navController, scoreId = id)
+                }
+                composable(Screen.ManualAnnotation.route + "/{id}") { backStackEntry ->
+                    val id = backStackEntry.arguments?.getString("id") ?: ""
+                    ManualAnnotationScreen(navController = navController, scoreId = id)
+                }
             }
+//            composable(Screen.ScoreViewer.route + "/{id}") { backStackEntry ->
+//                val id = backStackEntry.arguments?.getString("id") ?: ""
+//                ScoreViewerScreen(navController, id)
+//            }
+//            composable(Screen.ManualAnnotation.route + "/{id}") { backStackEntry ->
+//                val id = backStackEntry.arguments?.getString("id") ?: ""
+//                ManualAnnotationScreen(navController, id)
+//            }
             composable(Screen.Recording.route + "/{id}") { backStackEntry ->
                 val id = backStackEntry.arguments?.getString("id") ?: ""
                 // lessonViewModel 전달
@@ -68,10 +87,6 @@ fun LessonSyncApp(
                 val id = backStackEntry.arguments?.getString("id") ?: ""
                 // lessonViewModel 전달
                 ReviewScreen(navController, id, lessonViewModel)
-            }
-            composable(Screen.ManualAnnotation.route + "/{id}") { backStackEntry ->
-                val id = backStackEntry.arguments?.getString("id") ?: ""
-                ManualAnnotationScreen(navController, id)
             }
             composable(Screen.Summary.route + "/{id}") { backStackEntry ->
                 val id = backStackEntry.arguments?.getString("id") ?: ""
