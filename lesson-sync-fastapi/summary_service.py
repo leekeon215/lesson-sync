@@ -6,9 +6,9 @@ class SummaryService:
     def __init__(self):
         self.client = OpenAI(api_key=settings.OPENAI_API_KEY)
 
-    def generate_summary(self, segments):
-        texts = [seg["text"] for seg in segments if seg.get("text")]
-        transcript = "\n".join(texts)
+    def generate_summary(self, corrected_script):
+        #texts = [seg["text"] for seg in segments if seg.get("text")]
+        #transcript = "\n".join(texts)
         
         system_prompt = (
             "당신은 음악 레슨 내용을 전문적으로 요약하는 AI 어시스턴트입니다.\n\n"
@@ -25,7 +25,7 @@ class SummaryService:
 
         user_prompt = (
             "[음악 레슨 스크립트]\n\n"
-            f"{transcript}"
+            f"{corrected_script}"
         )
 
         max_retries = 5
@@ -56,3 +56,37 @@ class SummaryService:
             except Exception as e:
                 # 다른 종류의 오류는 즉시 발생시킴
                 raise e
+            
+    def correct_transcript(self, transcript: str) -> str:
+        """
+        ChatGPT API를 사용하여 STT로 변환된 텍스트의 오타와 문맥을 보정합니다.
+        """
+        # 텍스트 보정을 위한 별도의 시스템 프롬프트
+        correction_system_prompt = (
+            "당신은 한국어 교정 전문가입니다. "
+            "입력되는 텍스트는 음악 레슨 대화의 음성인식(STT) 결과입니다. "
+            "이로 인해 오타, 띄어쓰기 오류, 문맥에 맞지 않는 단어(예: '사마디' -> '4마디', '비바블라토' -> '비브라토', '이맛이' -> '2마디')가 포함되어 있습니다. "
+            "내용을 요약하거나 변경하지 말고, 오직 문법과 문맥에 맞게 오타와 오류만 수정하여 자연스러운 문장으로 된 전체 텍스트를 반환해 주세요. "
+            "원문의 내용 중 음악 레슨과 관련 없는 내용은 생략합니다."
+        )
+
+        user_prompt = (
+            "[원본 스크립트]\n\n"
+            f"{transcript}"
+        )
+        
+        # 재시도 로직은 간소화 (필요시 generate_summary와 동일하게 적용 가능)
+        try:
+            response = self.client.chat.completions.create(
+                model="gpt-3.5-turbo", # 또는 gpt-4-turbo
+                messages=[
+                    {"role": "system", "content": correction_system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                temperature=0.2 # 더 사실에 가깝게 보정하도록 temperature 조정
+            )
+            return response.choices[0].message.content or transcript
+        except Exception as e:
+            print(f"Transcript correction failed: {e}")
+            # 보정 실패 시 원본 텍스트를 그대로 반환
+            return transcript
