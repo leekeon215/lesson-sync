@@ -1,7 +1,5 @@
 package com.lessonsync.app.entity
 
-import com.google.gson.annotations.SerializedName
-
 // 서버 응답을 파싱하기 위한 데이터 클래스
 data class Segment(
     val start: Double,
@@ -10,12 +8,7 @@ data class Segment(
 )
 
 data class LessonData(
-    @SerializedName("speech_segments")
     val speechSegments: List<Segment>?,
-
-    @SerializedName("corrected_transcript")
-    val correctedTranscript: String?,
-
     val summary: String?
 )
 
