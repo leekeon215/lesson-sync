@@ -5,7 +5,7 @@ try:
     from score_annotator import parse_annotations
 except ImportError:
     import sys
-    sys.path.append('..')
+    sys.path.append('.')
     from score_annotator import parse_annotations
 
 # 최종 로직에 대한 기대 결과
