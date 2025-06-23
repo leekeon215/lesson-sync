@@ -92,6 +92,8 @@ fun ScoreViewerScreen(navController: NavHostController, scoreId: String) {
     var showDeleteDialog by remember { mutableStateOf(false) } // 삭제 확인 다이얼로그 상태
     var measureToDelete by remember { mutableIntStateOf(0) } // 삭제할 마디 번호
 
+    var showDeleteAllAnnotationsDialog by remember { mutableStateOf(false) } // 모든 주석 삭제 다이얼로그 상태
+
     // true: 주석 보임 (녹음 완료 상태), false: 일반 악보 (녹음 전 또는 주석 숨김)
     var showAnnotations by remember { mutableStateOf(false) }
 
@@ -159,6 +161,43 @@ fun ScoreViewerScreen(navController: NavHostController, scoreId: String) {
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog = false }) {
                     Text("아니오")
+                }
+            }
+        )
+    }
+
+    // showDialog 상태가 true일 때만 다이얼로그를 표시
+    if (showDeleteAllAnnotationsDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                // 다이얼로그 바깥쪽을 클릭하거나 뒤로가기 버튼을 눌렀을 때
+                showDeleteAllAnnotationsDialog = false
+            },
+            title = {
+                Text(text = "주석 삭제")
+            },
+            text = {
+                Text(text = "정말 모든 주석을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        // '삭제' 버튼 클릭 시
+                        scoreViewModel.deleteAnnotationsForScore(scoreId.toInt())
+                        showDeleteAllAnnotationsDialog = false // 다이얼로그 닫기
+                    }
+                ) {
+                    Text("삭제", color = Color.Red)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        // '취소' 버튼 클릭 시
+                        showDeleteAllAnnotationsDialog = false // 다이얼로그 닫기
+                    }
+                ) {
+                    Text("취소")
                 }
             }
         )
@@ -352,7 +391,10 @@ fun ScoreViewerScreen(navController: NavHostController, scoreId: String) {
                 Spacer(modifier = Modifier.width(12.dp))
 
                 TextButton(
-                    onClick = { /* TODO: 녹음/재생 라이브러리 화면으로 이동 */ },
+                    onClick = {
+                    /* TODO: 녹음/재생 라이브러리 화면으로 이동 */
+                        scoreViewModel.testParseDirectives(scoreId.toInt())
+                    },
                     modifier = Modifier
                         .weight(1f)
                         .height(48.dp)
@@ -378,16 +420,21 @@ fun ScoreViewerScreen(navController: NavHostController, scoreId: String) {
                     )
                 }
 
-                IconButton(onClick = { /* TODO: 현재 보이는 주석 삭제 로직 (만약 주석이 선택 가능하다면) */ }) {
+                IconButton(onClick = {
+                    showDeleteAllAnnotationsDialog  = true // 모든 주석 삭제 다이얼로그 표시
+
+                }) {
                     Icon(
                         Icons.Default.DeleteOutline,
-                        "표시된 주석 삭제",
+                        "모든 주석 삭제",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
         }
     }
+
+
 }
 // Preview 코드 동일하게 유지
 

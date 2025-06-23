@@ -9,6 +9,8 @@ data class AnnotationRequest(
     val text: String
 )
 
+
+
 /**
  * 서버로부터 받은 개별 주석 정보를 담는 모델
  */

@@ -199,7 +199,7 @@ fun ManualAnnotationScreen(navController: NavHostController, scoreId: String) {
                             ScoreWebView(
                                 filePath = scoreState!!.filePath,
                                 modifier = Modifier.fillMaxSize(),
-                                zoomLevel = 0.7f, // 기본 줌 레벨 또는 상태 변수 전달
+                                zoomLevel = 1.0f, // 기본 줌 레벨 또는 상태 변수 전달
                                 annotations = annotations, // ViewModel에서 가져온 기존 주석들
                                 showAnnotations = true, // 주석 화면이므로 항상 주석 표시
                                 highlightedMeasure = currentMeasure, // 현재 선택된 마디 번호 전달

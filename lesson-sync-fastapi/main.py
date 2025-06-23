@@ -34,13 +34,14 @@ async def process_lesson(file: UploadFile = File(...)):
         # 텍스트 변환
         processed_segments = audio_processor.transcribe_segments(segments, waveform, sr)
         logger.info("텍스트 변환 완료")
+        logger.info(f"추출된 음성 구간: {processed_segments}")
 
         # 요약 생성
         summary = summary_service.generate_summary(processed_segments)
         logger.info("AI 요약 완료")
 
         return JSONResponse(content={
-            "speech_segments": processed_segments,
+            "speechSegments": processed_segments,
             "summary": summary
         })
         
@@ -75,6 +76,13 @@ async def parse_directives_from_text(req: AnnotationRequest):
     
     # 파싱된 결과를 JSON으로 반환
     # 예: [{"measure": 5, "directive": "빠르게"}]
+    # === 이 부분이 가장 중요합니다 ===
+    # 클라이언트가 원하는 JSON 구조(딕셔너리 리스트)로 변환합니다.
+    annotations_to_send = [
+        {"measure": measure, "directive": directive}
+        for measure, directive in annotations
+    ]
+    # 결과 예시: [{'measure': 5, 'directive': '빠르게'}, {'measure': 10, 'directive': '부드럽게'}]
     
     logger.info("주석 파싱 완료")
-    return {"annotations": annotations}
+    return {"annotations": annotations_to_send}

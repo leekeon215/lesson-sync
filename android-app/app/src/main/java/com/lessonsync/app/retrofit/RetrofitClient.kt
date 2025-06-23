@@ -11,7 +11,7 @@ object RetrofitClient {
     private const val BASE_URL = "http://10.0.2.2:8000/" // 에뮬레이터용
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
-        level = HttpLoggingInterceptor.Level.BODY
+        level = HttpLoggingInterceptor.Level.HEADERS
     }
 
     private val okHttpClient = OkHttpClient.Builder()

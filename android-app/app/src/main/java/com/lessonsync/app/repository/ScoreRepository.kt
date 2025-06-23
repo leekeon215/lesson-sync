@@ -1,5 +1,6 @@
 package com.lessonsync.app.repository
 
+import com.lessonsync.app.entity.AnnotationDao
 import com.lessonsync.app.entity.AnnotationEntity
 import com.lessonsync.app.entity.AnnotationInfo
 import com.lessonsync.app.entity.LessonResultEntity
@@ -9,7 +10,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 
-class ScoreRepository(private val scoreDao: ScoreDao) {
+class ScoreRepository(
+    private val scoreDao: ScoreDao,
+    private val annotationDao: AnnotationDao // AnnotationDao를 사용하기 위한 Repository
+) {
 
     val allScores: Flow<List<ScoreEntity>> = scoreDao.getAllScores()
 
@@ -51,7 +55,8 @@ class ScoreRepository(private val scoreDao: ScoreDao) {
         withContext(Dispatchers.IO) {
             // 새 분석 결과를 저장하기 전에 이전 결과가 있다면 삭제
             scoreDao.deletePreviousLessonResult(scoreId)
-            scoreDao.deletePreviousAnnotations(scoreId)
+            annotationDao.deleteAllForScore(scoreId)  //이전 주석 삭제 해야됨?..
+
 
             // 새 레슨 결과 Entity 생성 및 저장
             val lessonResult = LessonResultEntity(
@@ -69,8 +74,10 @@ class ScoreRepository(private val scoreDao: ScoreDao) {
                         measureNumber = it.measure,
                         directive = it.directive
                     )
+
                 }
-                scoreDao.insertAnnotations(annotationEntities)
+//                scoreDao.insertAnnotations(annotationEntities)
+                annotationDao.insertAll(annotationEntities) // AnnotationRepository를 통해 저장
             }
         }
     }

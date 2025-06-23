@@ -16,7 +16,7 @@ class AnnotationRepository(private val annotationDao: AnnotationDao) {
 
     // 사용자가 추가한 삭제 기능을 호출하는 함수
     suspend fun deleteAnnotationsForScore(scoreOwnerId: Int) {
-        annotationDao.deleteAnnotationsForScore(scoreOwnerId)
+        annotationDao.deleteAllForScore(scoreOwnerId)
     }
 
     suspend fun deleteAnnotation(scoreOwnerId: Int, measureNumber: Int) {
