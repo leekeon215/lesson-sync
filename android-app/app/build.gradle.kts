@@ -71,12 +71,21 @@ dependencies {
     kapt(libs.androidx.room.compiler)
 
 
-    // 테스트 및 디버깅 도구
+    // Core testing libraries
     testImplementation(libs.junit)
+    androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.junit.v115)
-    androidTestImplementation(libs.androidx.espresso.core.v351)
-    androidTestImplementation(platform(libs.androidx.compose.bom.v20240500))
-    androidTestImplementation(libs.ui.test.junit4)
+    androidTestImplementation(libs.androidx.room.testing)
+    // Mockito for mocking dependencies in unit tests
+    testImplementation(libs.mockito.kotlin)
+    testImplementation(libs.mockito.inline) // To mock final classes
+
+    // Coroutines testing
+    testImplementation(libs.kotlinx.coroutines.test)
+
+    // Special rule for testing LiveData
+    testImplementation(libs.androidx.core.testing)
 
     debugImplementation(libs.ui.tooling)
     debugImplementation(libs.ui.test.manifest)
