@@ -60,6 +60,7 @@ import com.lessonsync.app.navigation.demoScores
 import com.lessonsync.app.ui.theme.LessonSyncTheme
 import com.lessonsync.app.viewmodel.ScoreViewModel
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.key
 
 @SuppressLint("UnrememberedGetBackStackEntry")
 @OptIn(ExperimentalMaterial3Api::class)
@@ -75,17 +76,23 @@ fun ManualAnnotationScreen(navController: NavHostController, scoreId: String) {
     val annotations by scoreViewModel.annotations.collectAsState()
 
     var annotationText by remember { mutableStateOf("") }
-    var currentMeasure by remember { mutableIntStateOf(14) } // 예시 마디 번호
+    var currentMeasure by remember { mutableIntStateOf(1) } // 예시 마디 번호
     val maxMeasures = 32 // 예시 최대 마디 번호 (실제 악보에 따라 동적으로 설정 필요)
 
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
 
-    // 화면 진입 시 텍스트 필드에 포커스를 주도록 설정 (선택 사항)
-     LaunchedEffect(scoreId) {
-//         focusRequester.requestFocus()
-         scoreViewModel.loadScoreAndAnnotations(scoreId.toInt()) // scoreId를 Int로 변환하여 로드
-     }
+    // 화면 진입 시 악보와 주석 데이터를 로드
+    LaunchedEffect(scoreId) {
+        // 악보 정보 로드
+        scoreViewModel.getScoreById(scoreId.toInt())
+
+        // 주석 데이터 로드
+        scoreViewModel.loadScoreAndAnnotations(scoreId.toInt())
+
+        // 로그 출력
+        Log.d("ManualAnnotationScreen", "Loaded score ID: $scoreId with ${annotations.size} annotations")
+    }
 
     Scaffold(
         topBar = {
@@ -98,7 +105,7 @@ fun ManualAnnotationScreen(navController: NavHostController, scoreId: String) {
                 },
                 actions = {
                     IconButton(onClick = {
-                        // TODO: 주석 저장 로직 (currentMeasure, annotationText, scoreId 사용)
+                        // 주석 저장 로직
                         Log.d("ManualAnnotationScreen", "주석 저장: 마디 $currentMeasure, 내용: $annotationText")
                         if (annotationText.isNotBlank()) {
                             scoreViewModel.addAnnotation(
@@ -107,9 +114,11 @@ fun ManualAnnotationScreen(navController: NavHostController, scoreId: String) {
                                 directive = annotationText
                             )
                             annotationText = "" // 입력 필드 초기화
+
+                            // 주석 데이터를 다시 로드하여 UI에 즉시 반영되도록 함
+                            scoreViewModel.loadScoreAndAnnotations(scoreId.toInt())
                         }
                         keyboardController?.hide() // 키보드 숨기기
-                        navController.popBackStack() // 이전 화면으로 돌아가기
                     }) {
                         Icon(Icons.Filled.Check, "주석 저장")
                     }
@@ -146,25 +155,24 @@ fun ManualAnnotationScreen(navController: NavHostController, scoreId: String) {
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    // TODO: 악보 렌더링 (WebView 또는 전용 라이브러리 사용)
-                    //      선택된 마디(currentMeasure)를 하이라이트하거나 해당 부분으로 스크롤하는 기능 필요
-
+                    // 악보 렌더링
                     if (scoreState?.filePath.isNullOrBlank()) {
                         Text("악보를 불러오는 중...", color = Color.Black)
                     } else {
+                        // key를 여러 파라미터로 설정하여 변경될 때마다 새로고침
+                        key(scoreState!!.filePath, annotations.size, currentMeasure) {
+                            Log.d("ManualAnnotationScreen", "Rendering ScoreWebView with ${annotations.size} annotations, highlighted measure: $currentMeasure")
 
-                        Log.d("ManualAnnotationScreen", "highlightedMeasure: $currentMeasure")
-
-                        ScoreWebView(
-                            filePath = scoreState!!.filePath,
-                            modifier = Modifier.fillMaxSize(),
-                            zoomLevel = 1.0f, // 기본 줌 레벨 또는 상태 변수 전달
-                            annotations = annotations, // ViewModel에서 가져온 기존 주석들
-                            showAnnotations = true, // 주석 화면이므로 항상 주석 표시
-                            highlightedMeasure = currentMeasure // 현재 선택된 마디 번호 전달
-                        )
+                            ScoreWebView(
+                                filePath = scoreState!!.filePath,
+                                modifier = Modifier.fillMaxSize(),
+                                zoomLevel = 0.7f, // 기본 줌 레벨 또는 상태 변수 전달
+                                annotations = annotations, // ViewModel에서 가져온 기존 주석들
+                                showAnnotations = true, // 주석 화면이므로 항상 주석 표시
+                                highlightedMeasure = currentMeasure // 현재 선택된 마디 번호 전달
+                            )
+                        }
                     }
-
                 }
             }
 
@@ -193,7 +201,13 @@ fun ManualAnnotationScreen(navController: NavHostController, scoreId: String) {
                         .fillMaxWidth()
                         .padding(vertical = 8.dp)
                 ) {
-                    IconButton(onClick = { if (currentMeasure > 1) currentMeasure-- }) {
+                    IconButton(onClick = {
+                        if (currentMeasure > 1) {
+                            currentMeasure--
+                            // 마디 번호가 변경될 때마다 로그 출력
+                            Log.d("ManualAnnotationScreen", "Selected measure: $currentMeasure")
+                        }
+                    }) {
                         Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "이전 마디")
                     }
                     Text(
@@ -202,7 +216,13 @@ fun ManualAnnotationScreen(navController: NavHostController, scoreId: String) {
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(horizontal = 20.dp)
                     )
-                    IconButton(onClick = { if (currentMeasure < maxMeasures) currentMeasure++ }) {
+                    IconButton(onClick = {
+                        if (currentMeasure < maxMeasures) {
+                            currentMeasure++
+                            // 마디 번호가 변경될 때마다 로그 출력
+                            Log.d("ManualAnnotationScreen", "Selected measure: $currentMeasure")
+                        }
+                    }) {
                         Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "다음 마디")
                     }
                 }
