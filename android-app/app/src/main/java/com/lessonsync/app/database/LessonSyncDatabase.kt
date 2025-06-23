@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import com.lessonsync.app.entity.AnnotationDao
 import com.lessonsync.app.entity.AnnotationEntity
 import com.lessonsync.app.entity.LessonResultEntity
 import com.lessonsync.app.entity.ScoreDao
@@ -14,6 +15,7 @@ import com.lessonsync.app.entity.ScoreEntity
 abstract class LessonSyncDatabase : RoomDatabase() {
 
     abstract fun scoreDao(): ScoreDao
+    abstract fun annotationDao(): AnnotationDao // AnnotationEntity를 위한 DAO
 
     companion object {
         @Volatile
