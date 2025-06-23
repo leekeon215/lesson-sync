@@ -2,112 +2,219 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src="https://cdn.jsdelivr.net/npm/opensheetmusicdisplay@latest/build/opensheetmusicdisplay.min.js"></script>
+    <script src="./opensheetmusicdisplay.min.js"></script>
     <style>
         body, html { margin: 0; padding: 0; }
+        #score-container { width: 100%; }
+        svg { width: 100%; height: auto; }
+
+        /* 주석 스타일 */
+        .annotation-bubble {
+            opacity: 0.95;
+        }
+        .annotation-text {
+            font-family: 'Arial', sans-serif;
+            font-size: 12px;
+            font-weight: 500;
+            fill: #333;
+        }
     </style>
 </head>
 <body>
-<div id="score-container" style="width: 100%;"></div>
-
+<div id="score-container"></div>
 <script>
-    function highlightMeasure(measureNumber) {
-        const cursor = window.osmd ? window.osmd.cursor : undefined;
-        if (!cursor) {
-            console.log("OSMD cursor not ready.");
-            return;
-        }
-
-        // measureNumber가 null 또는 유효하지 않은 값이면 커서를 숨깁니다.
-        if (measureNumber === null || measureNumber < 1) {
-            cursor.hide();
+    /**
+     * 모든 상태를 받아 화면을 업데이트하는 최종 마스터 함수
+     */
+    function updateDisplay(state) {
+        if (!window.osmd || !window.isScoreLoaded) {
+            // OSMD가 준비되지 않았거나, 초기 load가 끝나지 않았으면 아무것도 하지 않음
             return;
         }
 
         try {
-            // 1. 커서를 맨 처음으로 리셋합니다. (cursor.reset() 호출)
-            cursor.reset();
+            // 1. 줌 레벨을 설정합니다.
+            window.osmd.zoom = state.zoom;
 
-            // 2. 목표 마디에 도달할 때까지 커서를 앞으로 감습니다. (cursor.next() 호출)
+            // 2. 악보를 동기적으로 다시 그립니다. 이 라인이 끝나면 악보가 화면에 그려진 상태입니다.
+            window.osmd.render();
+
+            // --- 해결 방안: render() 후 짧은 지연 추가 ---
+            // render()가 내부적으로 그래픽 계산을 완료할 시간을 확보합니다.
+            setTimeout(() => {
+                console.log("Render finished. Drawing annotations and highlight.");
+
+                clearAllAnnotations();
+
+                const availableMeasures = getMeasureCount();
+                console.log(`Score has ${availableMeasures} available measure(s)`);
+
+                if (state.annotations && state.annotations.length > 0) {
+                    const validAnnotations = state.annotations
+                        .filter(a => a.measure > 0 && a.measure <= availableMeasures)
+                        .sort((a, b) => a.measure - b.measure);
+
+                    const invalidAnnotations = state.annotations
+                        .filter(a => a.measure <= 0 || a.measure > availableMeasures);
+
+                    if (invalidAnnotations.length > 0) {
+                        console.log(`Filtered out ${invalidAnnotations.length} annotations with invalid measure numbers`);
+                    }
+
+                    console.log("Adding annotations:", JSON.stringify(validAnnotations));
+                    validAnnotations.forEach(a => addAnnotationToMeasure(a.measure, a.text));
+                }
+
+                toggleAnnotations(state.showAnnotations);
+
+                const measureToHighlight = state.highlightMeasure;
+                if (measureToHighlight !== null && measureToHighlight > 0 && measureToHighlight <= availableMeasures) {
+                    highlightMeasure(measureToHighlight);
+                } else if (measureToHighlight !== null) {
+                    console.log(`Cannot highlight measure ${measureToHighlight} - out of bounds (1-${availableMeasures})`);
+                    if (window.osmd && window.osmd.cursor) {
+                        window.osmd.cursor.hide();
+                    }
+                }
+            }, 200); // 200ms 정도의 지연을 줍니다.
+
+        } catch(e) {
+            console.error("Error in updateDisplay: ", e);
+        }
+    }
+
+    // 악보의 마디 수를 얻는 헬퍼 함수
+    function getMeasureCount() {
+        try {
+             if (window.osmd && window.osmd.graphic && window.osmd.graphic.measureList) {
+                const measureCount = window.osmd.graphic.measureList.length;
+                console.log("Getting measure count from graphic object: " + measureCount);
+                return measureCount;
+            }
+            else {
+                console.warn("OSMD or sheet data not available");
+            }
+        } catch (e) {
+            console.error("Error getting measure count:", e);
+        }
+        return 0;
+    }
+
+    // --- 아래 함수들은 모두 최종 버전입니다. 그대로 사용하시면 됩니다. ---
+
+    function highlightMeasure(measureNumber) {
+        const cursor = window.osmd ? window.osmd.cursor : undefined;
+        if (!cursor) return;
+
+        if (measureNumber === null || measureNumber < 1) {
+            cursor.hide();
+            return;
+        }
+        try {
+            cursor.show();
+            cursor.reset();
             const targetMeasureIndex = measureNumber - 1;
             while (cursor.iterator.currentMeasureIndex < targetMeasureIndex && !cursor.iterator.endReached) {
                 cursor.next();
             }
-
-            // 3. 커서를 표시합니다. (update()는 next()와 reset()에 포함되어 있음)
-            cursor.show();
-            console.log("Cursor successfully moved to measure: " + measureNumber);
-
+            cursor.update();
         } catch (e) {
             console.error("Error highlighting measure " + measureNumber + ": ", e);
             cursor.hide();
         }
     }
 
+    function addAnnotationToMeasure(measureNumber, text) {
+        const osmd = window.osmd;
+        if (!osmd || !osmd.graphic) {
+            console.error("OSMD or graphic not ready");
+            return;
+        }
 
+        const svgRoot = osmd.container.querySelector("svg");
+        if (!svgRoot) {
+            console.error("SVG root not found");
+            return;
+        }
 
+        let annotationLayer = svgRoot.querySelector("#annotation-layer");
+        if (!annotationLayer) {
+            annotationLayer = document.createElementNS("http://www.w3.org/2000/svg", "g");
+            annotationLayer.setAttribute("id", "annotation-layer");
+            svgRoot.appendChild(annotationLayer);
+            scaleAnnotationLayer(osmd.zoom);
+        }
 
-     /**
-      * 주석을 별도의 '확대/축소 가능한' 레이어에 추가하는 함수
-      */
-     function addAnnotationToMeasure(measureNumber, text) {
-         const osmd = window.osmd;
-         if (!osmd || !osmd.graphic) return;
+        // 수정된 부분: 올바른 방법으로 measure에 접근
+        try {
+            // measureList를 얻기 위한 안전한 방법
+            if (!osmd.graphic.measureList || osmd.graphic.measureList.length === 0) {
+                console.error("Measure list not available");
+                return;
+            }
 
-         const svgRoot = osmd.container.querySelector("svg");
-         if (!svgRoot) return;
+            // 마디 번호에 해당하는 인덱스는 1을 빼야함
+            const index = measureNumber - 1;
 
-         let annotationLayer = svgRoot.querySelector("#annotation-layer");
-         if (!annotationLayer) {
-             annotationLayer = document.createElementNS("http://www.w3.org/2000/svg", "g");
-             annotationLayer.setAttribute("id", "annotation-layer");
-             svgRoot.appendChild(annotationLayer);
-             // 초기 줌 상태를 적용
-             scaleAnnotationLayer(osmd.zoom);
-         }
+            const measure = osmd.graphic.measureList[index][0];
+            if (!measure || !measure.PositionAndShape) {
+                console.error("Measure or position not found for index:", index);
+                return;
+            }
 
-         const measure = osmd.graphic.measureList[0][measureNumber - 1];
-         if (!measure) return;
+            const measurePos = measure.PositionAndShape.AbsolutePosition;
+            const x = measurePos.x * 10;
+            const y = measurePos.y * 10 - 20; // 위치 약간 위로 조정
 
-         const measurePos = measure.PositionAndShape.AbsolutePosition;
-         const x = measurePos.x * 10;
-         const y = measurePos.y * 10 - 5;
+            console.log(`Adding annotation at measure ${measureNumber}, pos: (${x}, ${y}), text: ${text}`);
 
-         const svgText = document.createElementNS("http://www.w3.org/2000/svg", "text");
-         svgText.setAttribute("x", x);
-         svgText.setAttribute("y", y);
-         svgText.setAttribute("font-size", "14px");
-         svgText.setAttribute("font-family", "Arial");
-         svgText.setAttribute("fill", "red");
-         svgText.setAttribute("class", "custom-annotation");
-         svgText.textContent = text;
+            const svgText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            svgText.setAttribute("x", x);
+            svgText.setAttribute("y", y);
+            svgText.setAttribute("font-size", "14px");
+            svgText.setAttribute("font-family", "Arial");
+            svgText.setAttribute("fill", "red");
+            svgText.setAttribute("class", "custom-annotation");
+            svgText.setAttribute("cursor", "pointer"); // 마우스 커서를 포인터로 변경하여 클릭 가능함을 알림
 
-         annotationLayer.appendChild(svgText);
-     }
+            // 클릭 시 삭제 요청 함수를 호출합니다.
+            svgText.setAttribute("onclick", `requestAnnotationDeletion(${measureNumber})`);
 
-     /**
-      * 주석 레이어의 크기를 조절하여 줌을 따라가게 하는 함수
-      */
-     function scaleAnnotationLayer(zoom) {
-         const annotationLayer = document.querySelector("#annotation-layer");
-         if (annotationLayer) {
-             annotationLayer.setAttribute('transform', 'scale(' + zoom + ')');
-         }
-     }
+            svgText.textContent = text;
+            annotationLayer.appendChild(svgText);
+        } catch (e) {
+            console.error("Error adding annotation to measure", measureNumber, ":", e);
+        }
+    }
 
-     function toggleAnnotations(shouldShow) {
-         const annotationLayer = document.querySelector("#annotation-layer");
-         if (annotationLayer) {
-             annotationLayer.style.visibility = shouldShow ? 'visible' : 'hidden';
-         }
-     }
+    // --- ▼ [추가] JavaScript에서 Kotlin을 호출하는 함수 ---
+    function requestAnnotationDeletion(measureNumber) {
+        // JsBridge를 통해 Android(Kotlin) 코드로 measureNumber를 전달합니다.
+        if (window.jsBridge) {
+            window.jsBridge.requestDelete(measureNumber);
+        }
+    }
 
-     function clearAllAnnotations() {
-         const annotationLayer = document.querySelector("#annotation-layer");
-         if (annotationLayer) {
-             annotationLayer.innerHTML = '';
-         }
-     }
+    function scaleAnnotationLayer(zoom) {
+        const annotationLayer = document.querySelector("#annotation-layer");
+        if (annotationLayer) {
+            annotationLayer.setAttribute('transform', 'scale(' + zoom + ')');
+        }
+    }
+
+    function toggleAnnotations(shouldShow) {
+        const annotationLayer = document.querySelector("#annotation-layer");
+        if (annotationLayer) {
+            annotationLayer.style.visibility = shouldShow ? 'visible' : 'hidden';
+        }
+    }
+
+    function clearAllAnnotations() {
+        const annotationLayer = document.querySelector("#annotation-layer");
+        if (annotationLayer) {
+            annotationLayer.innerHTML = '';
+        }
+    }
 </script>
 </body>
 </html>

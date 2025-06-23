@@ -25,10 +25,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Note
 import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.ZoomIn
 import androidx.compose.material.icons.filled.ZoomOut
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -45,10 +47,12 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -65,10 +69,12 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.lessonsync.app.R
+import com.lessonsync.app.audio.AudioPlayer
 import com.lessonsync.app.navigation.Screen
 import com.lessonsync.app.navigation.demoScores
 import com.lessonsync.app.ui.theme.LessonSyncTheme
 import com.lessonsync.app.viewmodel.ScoreViewModel
+import kotlinx.coroutines.delay
 
 @SuppressLint("UnrememberedGetBackStackEntry")
 @OptIn(ExperimentalMaterial3Api::class)
@@ -81,35 +87,81 @@ fun ScoreViewerScreen(navController: NavHostController, scoreId: String) {
 
     val scoreViewModel: ScoreViewModel = viewModel(viewModelStoreOwner = parentEntry)
     val scoreState by scoreViewModel.selectedScore.collectAsState()
-    val score = scoreState // ViewModel에서 가져온 현재 선택된 악보 상태
+    val annotations by scoreViewModel.annotations.collectAsState()
 
-    val annotation by scoreViewModel.annotations.collectAsState(initial = emptyList())
+    var showDeleteDialog by remember { mutableStateOf(false) } // 삭제 확인 다이얼로그 상태
+    var measureToDelete by remember { mutableIntStateOf(0) } // 삭제할 마디 번호
 
     // true: 주석 보임 (녹음 완료 상태), false: 일반 악보 (녹음 전 또는 주석 숨김)
     var showAnnotations by remember { mutableStateOf(false) }
 
     // TODO: 이 상태는 실제 녹음 완료 여부에 따라 외부에서 주입받거나 ViewModel을 통해 관리되어야 합니다.
     // Preview 및 UI 데모를 위해 임시로 showAnnotations와 연동합니다.
-    val isRecordingCompleted = showAnnotations
+    val isRecordingCompleted = scoreState?.recordedFilePath != null
+
+    val context = LocalContext.current
+    val audioPlayer = remember { AudioPlayer(context) }
+    var isPlaying by remember { mutableStateOf(false) }
+
+    // [추가] 화면이 사라질 때 플레이어 리소스 정리
+    DisposableEffect(Unit) {
+        onDispose {
+            audioPlayer.stop()
+        }
+    }
 
     // 1. 줌 레벨을 저장할 상태 변수 생성 (기본값 1.0)
-    var zoomLevel by remember { mutableStateOf(0.7f) }
-
+    var zoomLevel by remember { mutableStateOf(1.0f) }
 
     val topBarBackgroundColor = MaterialTheme.colorScheme.surfaceContainerLowest
     val bottomControlsBackgroundColor = MaterialTheme.colorScheme.surfaceContainer
 
-    val context = LocalContext.current
     val prefs = context.getSharedPreferences("LessonSyncPrefs", Context.MODE_PRIVATE)
     val isSummaryReady = remember {
         mutableStateOf(prefs.getBoolean("summaryReady_$scoreId", false))
     }
 
+    // 악보 데이터와 주석 데이터를 처음 로드
     LaunchedEffect(scoreId) {
+        Log.d("ScoreViewerScreen", "Loading score with ID: $scoreId")
+        // 악보 정보 로드
+        scoreViewModel.getScoreById(scoreId.toInt())
+        // 약간의 지연 후 주석 정보 로드 (악보 로드가 완료되도록)
+        delay(100)
+        scoreViewModel.loadScoreAndAnnotations(scoreId.toInt())
         // 최신 상태 반영 위해 SharedPreferences를 다시 확인
         isSummaryReady.value = prefs.getBoolean("summaryReady_$scoreId", false)
+        // 주석 개수 로그 출력
+        Log.d("ScoreViewerScreen", "Annotations loaded: ${annotations.size}")
+    }
 
-        scoreViewModel.getScoreById(scoreId.toInt())
+
+
+    // 삭제 요청 시 다이얼로그 표시
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("주석 삭제") },
+            text = { Text("${measureToDelete}번째 마디의 주석을 삭제하시겠습니까?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        // ViewModel의 삭제 함수 호출
+                        scoreState?.id?.let {
+                            scoreViewModel.deleteAnnotation(it, measureToDelete)
+                        }
+                        showDeleteDialog = false
+                    }
+                ) {
+                    Text("예")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("아니오")
+                }
+            }
+        )
     }
 
     Scaffold(
@@ -117,7 +169,7 @@ fun ScoreViewerScreen(navController: NavHostController, scoreId: String) {
             TopAppBar(
                 title = {
                     Text(
-                        score?.title ?: "악보 보기",
+                        scoreState?.title ?: "악보 보기",
                         color = MaterialTheme.colorScheme.onSurface
                     )
                 },
@@ -187,15 +239,28 @@ fun ScoreViewerScreen(navController: NavHostController, scoreId: String) {
                     }
                     else {
                         // 악보를 보여주는 컴포넌트
-                        key(scoreState!!.filePath) {
+                        // key를 여러 파라미터로 설정하여 변경될 때마다 새로고침
+                        key(scoreState!!.filePath, annotations.size, showAnnotations) {
                             ScoreWebView(
                                 filePath = scoreState!!.filePath,
                                 modifier = Modifier.fillMaxSize(),
                                 zoomLevel = zoomLevel,
-                                annotations = annotation, // ViewModel에서 가져온 주석 리스트
+                                annotations = annotations, // ViewModel에서 가져온 주석 리스트
                                 showAnnotations = showAnnotations,
-                                highlightedMeasure = null // 현재는 하이라이트 기능 없음
+                                highlightedMeasure = null, // 현재는 하이라이트 기능 없음
+                                onDeleteReuqest = { measureNumber ->
+                                    // 삭제 요청 콜백
+                                    measureToDelete = measureNumber
+                                    showDeleteDialog = true // 다이얼로그 표시
+                                    Log.d(
+                                        "ManualAnnotationScreen",
+                                        "Delete request for measure: $measureNumber"
+                                    )
+                                }
                             )
+
+                            // 디버깅 로그 추가
+                            Log.d("ScoreViewerScreen", "ScoreWebView rendered with ${annotations.size} annotations, showing: $showAnnotations")
                         }
                     }
                 }
@@ -248,6 +313,17 @@ fun ScoreViewerScreen(navController: NavHostController, scoreId: String) {
                         .clickable {
                             if (isRecordingCompleted) {
                                 // TODO: 녹음된 파일 재생 로직
+                                scoreState?.recordedFilePath?.let { path ->
+                                    if(isPlaying) {
+                                        audioPlayer.stop()
+                                        isPlaying = false
+                                    } else {
+                                        audioPlayer.playFile(path){
+                                            isPlaying = false // 재생 완료 후 상태 변경
+                                        }
+                                        isPlaying = true
+                                    }
+                                }
                             } else {
                                 navController.navigate(Screen.Recording.route + "/$scoreId")
                             }
@@ -255,9 +331,10 @@ fun ScoreViewerScreen(navController: NavHostController, scoreId: String) {
                     contentAlignment = Alignment.Center
                 ) {
                     if (isRecordingCompleted) {
+                        // isPlaying 상태에 따라 아이콘 변경
                         Icon(
-                            imageVector = Icons.Filled.PlayArrow, // 재생 아이콘
-                            contentDescription = "재생",
+                            imageVector = if(isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow, // 재생 아이콘
+                            contentDescription = if(isPlaying) "정지" else "재생",
                             tint = MaterialTheme.colorScheme.onPrimary, // primary 색상 위의 아이콘 색
                             modifier = Modifier.size(24.dp)
                         )
@@ -337,6 +414,3 @@ fun ScoreViewerScreenDarkPreview() {
         ScoreViewerScreen(navController = rememberNavController(), scoreId = firstScoreId)
     }
 }
-
-
-

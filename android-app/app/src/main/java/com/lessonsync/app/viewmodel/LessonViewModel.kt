@@ -1,6 +1,7 @@
 package com.lessonsync.app.viewmodel
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.lessonsync.app.database.LessonSyncDatabase
@@ -36,6 +37,9 @@ class LessonViewModel(application: Application) : AndroidViewModel(application) 
      */
     fun uploadAndProcessRecording(scoreId: Int, file: File) {
         viewModelScope.launch {
+
+            scoreRepository.updateRecordedFilePath(scoreId, file.absolutePath)
+
             // 1. 로딩 상태로 변경
             _uiState.value = LessonUiState.Loading
 
@@ -57,7 +61,9 @@ class LessonViewModel(application: Application) : AndroidViewModel(application) 
      * 모든 결과를 취합하여 DB에 저장합니다.
      */
     private fun processToCreateAnnotations(scoreId: Int, lessonData: LessonData) {
-        val fullTranscript = lessonData.speechSegments?.joinToString(" ") { it.text } ?: ""
+        val fullTranscript = lessonData.correctedTranscript ?: ""
+        Log.d("lessondata", lessonData.speechSegments.toString())
+        Log.d("lessondata", lessonData.correctedTranscript.toString())
         if (fullTranscript.isBlank()) {
             // 주석으로 만들 텍스트가 없으면, 현재까지의 결과(요약, 빈 전문)만 저장
             saveAnalysisResultToDb(scoreId, lessonData.summary ?: "", "", emptyList())
