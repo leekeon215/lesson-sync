@@ -1,9 +1,6 @@
 package com.lessonsync.app.ui.screens
 
 // import androidx.compose.foundation.layout.width // 사용하지 않으므로 제거 가능
-import ScoreWebView
-import android.annotation.SuppressLint
-import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,7 +34,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -53,27 +49,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.lessonsync.app.navigation.demoScores
 import com.lessonsync.app.ui.theme.LessonSyncTheme
-import com.lessonsync.app.viewmodel.ScoreViewModel
-import androidx.compose.runtime.LaunchedEffect
 
-@SuppressLint("UnrememberedGetBackStackEntry")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ManualAnnotationScreen(navController: NavHostController, scoreId: String) {
-
-    val parentEntry = remember(navController) {
-        navController.getBackStackEntry("score_details_graph") // 1단계에서 정의한 그래프 route
-    }
-
-    val scoreViewModel: ScoreViewModel = viewModel(viewModelStoreOwner = parentEntry)
-    val scoreState by scoreViewModel.selectedScore.collectAsState()
-    val annotations by scoreViewModel.annotations.collectAsState()
-
+    val score = demoScores.find { it.id == scoreId } // 악보 정보 (제목 등에 활용 가능)
     var annotationText by remember { mutableStateOf("") }
     var currentMeasure by remember { mutableIntStateOf(14) } // 예시 마디 번호
     val maxMeasures = 32 // 예시 최대 마디 번호 (실제 악보에 따라 동적으로 설정 필요)
@@ -82,15 +66,14 @@ fun ManualAnnotationScreen(navController: NavHostController, scoreId: String) {
     val keyboardController = LocalSoftwareKeyboardController.current
 
     // 화면 진입 시 텍스트 필드에 포커스를 주도록 설정 (선택 사항)
-     LaunchedEffect(scoreId) {
-//         focusRequester.requestFocus()
-         scoreViewModel.loadScoreAndAnnotations(scoreId.toInt()) // scoreId를 Int로 변환하여 로드
-     }
+    // LaunchedEffect(Unit) {
+    //     focusRequester.requestFocus()
+    // }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(scoreState?.title ?: "수동 주석") }, // 악보 제목 또는 기본 제목
+                title = { Text(score?.title ?: "수동 주석") }, // 악보 제목 또는 기본 제목
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "뒤로 가기")
@@ -99,15 +82,6 @@ fun ManualAnnotationScreen(navController: NavHostController, scoreId: String) {
                 actions = {
                     IconButton(onClick = {
                         // TODO: 주석 저장 로직 (currentMeasure, annotationText, scoreId 사용)
-                        Log.d("ManualAnnotationScreen", "주석 저장: 마디 $currentMeasure, 내용: $annotationText")
-                        if (annotationText.isNotBlank()) {
-                            scoreViewModel.addAnnotation(
-                                scoreOwnerId = scoreState?.id ?: 0, // 현재 악보 ID
-                                measureNumber = currentMeasure,
-                                directive = annotationText
-                            )
-                            annotationText = "" // 입력 필드 초기화
-                        }
                         keyboardController?.hide() // 키보드 숨기기
                         navController.popBackStack() // 이전 화면으로 돌아가기
                     }) {
@@ -148,23 +122,12 @@ fun ManualAnnotationScreen(navController: NavHostController, scoreId: String) {
                 ) {
                     // TODO: 악보 렌더링 (WebView 또는 전용 라이브러리 사용)
                     //      선택된 마디(currentMeasure)를 하이라이트하거나 해당 부분으로 스크롤하는 기능 필요
-
-                    if (scoreState?.filePath.isNullOrBlank()) {
-                        Text("악보를 불러오는 중...", color = Color.Black)
-                    } else {
-
-                        Log.d("ManualAnnotationScreen", "highlightedMeasure: $currentMeasure")
-
-                        ScoreWebView(
-                            filePath = scoreState!!.filePath,
-                            modifier = Modifier.fillMaxSize(),
-                            zoomLevel = 1.0f, // 기본 줌 레벨 또는 상태 변수 전달
-                            annotations = annotations, // ViewModel에서 가져온 기존 주석들
-                            showAnnotations = true, // 주석 화면이므로 항상 주석 표시
-                            highlightedMeasure = currentMeasure // 현재 선택된 마디 번호 전달
-                        )
-                    }
-
+                    Text(
+                        "[악보 렌더링 영역 - 현재 마디: $currentMeasure]",
+                        color = Color.Black,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(16.dp)
+                    )
                 }
             }
 

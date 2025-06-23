@@ -1,9 +1,6 @@
 package com.lessonsync.app.ui.screens
 
-import ScoreWebView
-import android.annotation.SuppressLint
 import android.content.Context
-import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -46,9 +43,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -61,29 +56,17 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.lessonsync.app.R
 import com.lessonsync.app.navigation.Screen
 import com.lessonsync.app.navigation.demoScores
 import com.lessonsync.app.ui.theme.LessonSyncTheme
-import com.lessonsync.app.viewmodel.ScoreViewModel
 
-@SuppressLint("UnrememberedGetBackStackEntry")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScoreViewerScreen(navController: NavHostController, scoreId: String) {
-
-    val parentEntry = remember(navController) {
-        navController.getBackStackEntry("score_details_graph") // 1단계에서 정의한 그래프 route
-    }
-
-    val scoreViewModel: ScoreViewModel = viewModel(viewModelStoreOwner = parentEntry)
-    val scoreState by scoreViewModel.selectedScore.collectAsState()
-    val score = scoreState // ViewModel에서 가져온 현재 선택된 악보 상태
-
-    val annotation by scoreViewModel.annotations.collectAsState(initial = emptyList())
+    val score = demoScores.find { it.id == scoreId }
 
     // true: 주석 보임 (녹음 완료 상태), false: 일반 악보 (녹음 전 또는 주석 숨김)
     var showAnnotations by remember { mutableStateOf(false) }
@@ -91,9 +74,6 @@ fun ScoreViewerScreen(navController: NavHostController, scoreId: String) {
     // TODO: 이 상태는 실제 녹음 완료 여부에 따라 외부에서 주입받거나 ViewModel을 통해 관리되어야 합니다.
     // Preview 및 UI 데모를 위해 임시로 showAnnotations와 연동합니다.
     val isRecordingCompleted = showAnnotations
-
-    // 1. 줌 레벨을 저장할 상태 변수 생성 (기본값 1.0)
-    var zoomLevel by remember { mutableStateOf(0.7f) }
 
 
     val topBarBackgroundColor = MaterialTheme.colorScheme.surfaceContainerLowest
@@ -105,29 +85,18 @@ fun ScoreViewerScreen(navController: NavHostController, scoreId: String) {
         mutableStateOf(prefs.getBoolean("summaryReady_$scoreId", false))
     }
 
-    LaunchedEffect(scoreId) {
+    LaunchedEffect(Unit) {
         // 최신 상태 반영 위해 SharedPreferences를 다시 확인
         isSummaryReady.value = prefs.getBoolean("summaryReady_$scoreId", false)
-
-        scoreViewModel.getScoreById(scoreId.toInt())
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {
-                    Text(
-                        score?.title ?: "악보 보기",
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                },
+                title = { Text(score?.title ?: "악보 보기", color = MaterialTheme.colorScheme.onSurface) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            "뒤로 가기",
-                            tint = MaterialTheme.colorScheme.onSurface
-                        )
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "뒤로 가기", tint = MaterialTheme.colorScheme.onSurface)
                     }
                 },
                 actions = {
@@ -150,11 +119,7 @@ fun ScoreViewerScreen(navController: NavHostController, scoreId: String) {
                             Toast.makeText(context, "아직 요약이 완료되지 않았습니다.", Toast.LENGTH_SHORT).show()
                         }
                     }) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.Note,
-                            "레슨 요약 보기",
-                            tint = MaterialTheme.colorScheme.onSurface
-                        )
+                        Icon(Icons.AutoMirrored.Filled.Note, "레슨 요약 보기", tint = MaterialTheme.colorScheme.onSurface)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = topBarBackgroundColor),
@@ -182,22 +147,11 @@ fun ScoreViewerScreen(navController: NavHostController, scoreId: String) {
                         .background(Color.White), // 악보는 항상 흰 배경
                     contentAlignment = Alignment.Center
                 ) {
-                    if(scoreState?.filePath.isNullOrBlank()) {
-                        Text("악보를 불러오는 중...", color = MaterialTheme.colorScheme.onSurface)
-                    }
-                    else {
-                        // 악보를 보여주는 컴포넌트
-                        key(scoreState!!.filePath) {
-                            ScoreWebView(
-                                filePath = scoreState!!.filePath,
-                                modifier = Modifier.fillMaxSize(),
-                                zoomLevel = zoomLevel,
-                                annotations = annotation, // ViewModel에서 가져온 주석 리스트
-                                showAnnotations = showAnnotations,
-                                highlightedMeasure = null // 현재는 하이라이트 기능 없음
-                            )
-                        }
-                    }
+                    // TODO: 악보 렌더링 (WebView 또는 전용 라이브러리 사용)
+                    Text(
+                        if (showAnnotations) "[주석 포함 악보 렌더링]" else "[일반 악보 렌더링]",
+                        color = Color.Black
+                    )
                 }
             }
 
@@ -209,14 +163,14 @@ fun ScoreViewerScreen(navController: NavHostController, scoreId: String) {
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 FloatingActionButton(
-                    onClick = { zoomLevel *= 1.2f }, // 확대
+                    onClick = { /* TODO: 악보 확대 로직 */ },
                     shape = CircleShape,
                     containerColor = MaterialTheme.colorScheme.surfaceVariant,
                     contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                     elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 2.dp)
                 ) { Icon(Icons.Default.ZoomIn, "확대") }
                 FloatingActionButton(
-                    onClick = { zoomLevel /= 1.2f }, // 축소
+                    onClick = { /* TODO: 악보 축소 로직 */ },
                     shape = CircleShape,
                     containerColor = MaterialTheme.colorScheme.surfaceVariant,
                     contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -240,11 +194,7 @@ fun ScoreViewerScreen(navController: NavHostController, scoreId: String) {
                     modifier = Modifier
                         .size(36.dp)
                         .clip(CircleShape)
-                        .background(
-                            if (isRecordingCompleted) MaterialTheme.colorScheme.primary else Color(
-                                0xFFAA0000
-                            )
-                        ) // 완료 시 다른 색
+                        .background(if (isRecordingCompleted) MaterialTheme.colorScheme.primary else Color(0xFFAA0000)) // 완료 시 다른 색
                         .clickable {
                             if (isRecordingCompleted) {
                                 // TODO: 녹음된 파일 재생 로직
@@ -294,19 +244,11 @@ fun ScoreViewerScreen(navController: NavHostController, scoreId: String) {
                 Spacer(modifier = Modifier.width(12.dp))
 
                 IconButton(onClick = { navController.navigate(Screen.ManualAnnotation.route + "/$scoreId") }) {
-                    Icon(
-                        Icons.Default.TextFields,
-                        "수동 주석 입력",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Icon(Icons.Default.TextFields, "수동 주석 입력", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
 
                 IconButton(onClick = { /* TODO: 현재 보이는 주석 삭제 로직 (만약 주석이 선택 가능하다면) */ }) {
-                    Icon(
-                        Icons.Default.DeleteOutline,
-                        "표시된 주석 삭제",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Icon(Icons.Default.DeleteOutline, "표시된 주석 삭제", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
@@ -324,12 +266,7 @@ fun ScoreViewerScreenPreview() {
     }
 }
 
-@Preview(
-    showBackground = true,
-    widthDp = 375,
-    heightDp = 812,
-    uiMode = android.content.res.Configuration.UI_MODE_NIGHT_YES
-)
+@Preview(showBackground = true, widthDp = 375, heightDp = 812, uiMode = android.content.res.Configuration.UI_MODE_NIGHT_YES)
 @Composable
 fun ScoreViewerScreenDarkPreview() {
     LessonSyncTheme(useDarkTheme = true) {
