@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.lessonsync.app.entity.AnnotationDao
 import com.lessonsync.app.entity.AnnotationEntity
 import com.lessonsync.app.entity.LessonResultEntity
@@ -21,6 +23,13 @@ abstract class LessonSyncDatabase : RoomDatabase() {
         @Volatile
         private var INSTANCE: LessonSyncDatabase? = null
 
+        // [추가] 버전 1 -> 2 마이그레이션 코드
+        private val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE scores ADD COLUMN recordedFilePath TEXT")
+            }
+        }
+
         fun getDatabase(context: Context): LessonSyncDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -29,7 +38,8 @@ abstract class LessonSyncDatabase : RoomDatabase() {
                     "lessonsync_database"
                 )
                     // 스키마 변경에 따른 마이그레이션 정책 추가 (개발 중에는 간단하게 파괴 후 재생성)
-                    .fallbackToDestructiveMigration()
+//                    .fallbackToDestructiveMigration()
+                    .addMigrations(MIGRATION_1_2) // 버전 1에서 2로의 마이그레이션 추가
                     .build()
                 INSTANCE = instance
                 instance

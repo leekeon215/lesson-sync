@@ -74,4 +74,8 @@ class ScoreRepository(private val scoreDao: ScoreDao) {
             }
         }
     }
+
+    suspend fun updateRecordedFilePath(scoreId: Int, absolutePath: String) {
+        scoreDao.updateRecordedFilePath(scoreId, absolutePath)
+    }
 }

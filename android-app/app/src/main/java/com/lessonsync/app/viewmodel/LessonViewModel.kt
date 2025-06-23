@@ -36,6 +36,9 @@ class LessonViewModel(application: Application) : AndroidViewModel(application) 
      */
     fun uploadAndProcessRecording(scoreId: Int, file: File) {
         viewModelScope.launch {
+
+            scoreRepository.updateRecordedFilePath(scoreId, file.absolutePath)
+
             // 1. 로딩 상태로 변경
             _uiState.value = LessonUiState.Loading
 

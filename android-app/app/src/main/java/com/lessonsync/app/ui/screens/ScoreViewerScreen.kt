@@ -25,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Note
 import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.ZoomIn
@@ -46,6 +47,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -67,6 +69,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.lessonsync.app.R
+import com.lessonsync.app.audio.AudioPlayer
 import com.lessonsync.app.navigation.Screen
 import com.lessonsync.app.navigation.demoScores
 import com.lessonsync.app.ui.theme.LessonSyncTheme
@@ -94,16 +97,25 @@ fun ScoreViewerScreen(navController: NavHostController, scoreId: String) {
 
     // TODO: 이 상태는 실제 녹음 완료 여부에 따라 외부에서 주입받거나 ViewModel을 통해 관리되어야 합니다.
     // Preview 및 UI 데모를 위해 임시로 showAnnotations와 연동합니다.
-    val isRecordingCompleted = showAnnotations
+    val isRecordingCompleted = scoreState?.recordedFilePath != null
+
+    val context = LocalContext.current
+    val audioPlayer = remember { AudioPlayer(context) }
+    var isPlaying by remember { mutableStateOf(false) }
+
+    // [추가] 화면이 사라질 때 플레이어 리소스 정리
+    DisposableEffect(Unit) {
+        onDispose {
+            audioPlayer.stop()
+        }
+    }
 
     // 1. 줌 레벨을 저장할 상태 변수 생성 (기본값 1.0)
-    var zoomLevel by remember { mutableStateOf(0.7f) }
-
+    var zoomLevel by remember { mutableStateOf(1.0f) }
 
     val topBarBackgroundColor = MaterialTheme.colorScheme.surfaceContainerLowest
     val bottomControlsBackgroundColor = MaterialTheme.colorScheme.surfaceContainer
 
-    val context = LocalContext.current
     val prefs = context.getSharedPreferences("LessonSyncPrefs", Context.MODE_PRIVATE)
     val isSummaryReady = remember {
         mutableStateOf(prefs.getBoolean("summaryReady_$scoreId", false))
@@ -112,20 +124,18 @@ fun ScoreViewerScreen(navController: NavHostController, scoreId: String) {
     // 악보 데이터와 주석 데이터를 처음 로드
     LaunchedEffect(scoreId) {
         Log.d("ScoreViewerScreen", "Loading score with ID: $scoreId")
-
         // 악보 정보 로드
         scoreViewModel.getScoreById(scoreId.toInt())
-
         // 약간의 지연 후 주석 정보 로드 (악보 로드가 완료되도록)
         delay(100)
         scoreViewModel.loadScoreAndAnnotations(scoreId.toInt())
-
         // 최신 상태 반영 위해 SharedPreferences를 다시 확인
         isSummaryReady.value = prefs.getBoolean("summaryReady_$scoreId", false)
-
         // 주석 개수 로그 출력
         Log.d("ScoreViewerScreen", "Annotations loaded: ${annotations.size}")
     }
+
+
 
     // 삭제 요청 시 다이얼로그 표시
     if (showDeleteDialog) {
@@ -303,6 +313,17 @@ fun ScoreViewerScreen(navController: NavHostController, scoreId: String) {
                         .clickable {
                             if (isRecordingCompleted) {
                                 // TODO: 녹음된 파일 재생 로직
+                                scoreState?.recordedFilePath?.let { path ->
+                                    if(isPlaying) {
+                                        audioPlayer.stop()
+                                        isPlaying = false
+                                    } else {
+                                        audioPlayer.playFile(path){
+                                            isPlaying = false // 재생 완료 후 상태 변경
+                                        }
+                                        isPlaying = true
+                                    }
+                                }
                             } else {
                                 navController.navigate(Screen.Recording.route + "/$scoreId")
                             }
@@ -310,9 +331,10 @@ fun ScoreViewerScreen(navController: NavHostController, scoreId: String) {
                     contentAlignment = Alignment.Center
                 ) {
                     if (isRecordingCompleted) {
+                        // isPlaying 상태에 따라 아이콘 변경
                         Icon(
-                            imageVector = Icons.Filled.PlayArrow, // 재생 아이콘
-                            contentDescription = "재생",
+                            imageVector = if(isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow, // 재생 아이콘
+                            contentDescription = if(isPlaying) "정지" else "재생",
                             tint = MaterialTheme.colorScheme.onPrimary, // primary 색상 위의 아이콘 색
                             modifier = Modifier.size(24.dp)
                         )
