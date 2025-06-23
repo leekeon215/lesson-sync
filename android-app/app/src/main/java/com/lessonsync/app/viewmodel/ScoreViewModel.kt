@@ -144,6 +144,17 @@ class ScoreViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // --- ▼ [추가] 주석 삭제 함수 ---
+    fun deleteAnnotation(scoreOwnerId: Int, measureNumber: Int) {
+        viewModelScope.launch {
+            // 예시: annotationRepository에 삭제 함수가 있다고 가정
+             annotationRepository.deleteAnnotation(scoreOwnerId, measureNumber)
+
+            // 삭제 후, 주석 목록을 다시 로드하여 UI를 갱신합니다.
+            loadScoreAndAnnotations(scoreOwnerId)
+        }
+    }
+
     fun deleteAnnotationsForScore(scoreId: Int) {
         viewModelScope.launch {
             annotationRepository.deleteAnnotationsForScore(scoreId)
