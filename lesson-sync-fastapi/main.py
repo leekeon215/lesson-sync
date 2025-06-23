@@ -29,16 +29,19 @@ async def process_lesson(file: UploadFile = File(...)):
         
         # 음성 구간 추출
         segments = audio_processor.extract_speech_segments(waveform, sr)
-        
+        logger.info("음성 구간 추출 완료")
+
         # 텍스트 변환
         processed_segments = audio_processor.transcribe_segments(segments, waveform, sr)
-        
+        logger.info("텍스트 변환 완료")
+
         # 요약 생성
-        #summary = summary_service.generate_summary(processed_segments)
-        
+        summary = summary_service.generate_summary(processed_segments)
+        logger.info("AI 요약 완료")
+
         return JSONResponse(content={
             "speech_segments": processed_segments,
-            #"summary": summary
+            "summary": summary
         })
         
     except Exception as e:

@@ -15,6 +15,7 @@ Jinja2==3.1.6
 markdown-it-py==3.0.0
 MarkupSafe==3.0.2
 mdurl==0.1.2
+openai>=1.0.0
 orjson==3.10.18
 pandas
 pydantic==2.11.4
