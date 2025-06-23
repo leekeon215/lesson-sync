@@ -10,6 +10,7 @@ import com.lessonsync.app.entity.AnnotationInfo
 import com.lessonsync.app.entity.AnnotationRequest
 import com.lessonsync.app.entity.LessonData
 import com.lessonsync.app.entity.LessonUiState
+import com.lessonsync.app.entity.Segment
 import com.lessonsync.app.repository.LessonRepository
 import com.lessonsync.app.repository.ScoreRepository
 import com.lessonsync.app.retrofit.RetrofitClient
@@ -154,5 +155,42 @@ class LessonViewModel(application: Application) : AndroidViewModel(application) 
      */
     fun resetState() {
         _uiState.value = LessonUiState.Idle
+    }
+
+    /**
+     * [신규] 특정 악보의 리뷰 데이터를 로드하는 함수.
+     * 먼저 DB를 확인하고, 데이터가 있으면 UI 상태를 업데이트합니다.
+     */
+    fun loadReviewData(scoreId: Int) {
+        viewModelScope.launch {
+            _uiState.value = LessonUiState.Loading // 로딩 상태 시작
+
+            val analysis = scoreRepository.getLessonAnalysis(scoreId)
+            val resultEntity = analysis.result
+
+            if (resultEntity != null) {
+                // DB에 데이터가 있는 경우
+
+                // DB에 저장된 전체 텍스트(fullTranscript)를 UI가 사용할 수 있도록
+                // Segment 객체 리스트로 만들어줍니다.
+                // (DB에서 가져올 때는 start/end 시간이 없으므로 0.0으로 설정)
+                val segmentsForUi = if (!resultEntity.fullTranscript.isNullOrBlank()) {
+                    listOf(Segment(start = 0.0, end = 0.0, text = resultEntity.fullTranscript))
+                } else {
+                    null
+                }
+
+                // UI가 사용하는 LessonData 객체 생성
+                val lessonData = LessonData(
+                    summary = resultEntity.summary,
+                    speechSegments = segmentsForUi
+                )
+                _uiState.value = LessonUiState.Success(lessonData)
+
+            } else {
+                // DB에 데이터가 없는 경우
+                _uiState.value = LessonUiState.Error("분석된 레슨 데이터가 없습니다.")
+            }
+        }
     }
 }

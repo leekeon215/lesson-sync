@@ -10,6 +10,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 
+// DB에서 가져온 데이터를 한 번에 담을 데이터 클래스를 정의하면 편리합니다.
+data class LessonAnalysis(
+    val result: LessonResultEntity?,
+    val annotations: List<AnnotationEntity>
+)
+
 class ScoreRepository(
     private val scoreDao: ScoreDao,
     private val annotationDao: AnnotationDao // AnnotationDao를 사용하기 위한 Repository
@@ -84,5 +90,16 @@ class ScoreRepository(
 
     suspend fun updateRecordedFilePath(scoreId: Int, absolutePath: String) {
         scoreDao.updateRecordedFilePath(scoreId, absolutePath)
+    }
+
+    /**
+     * [신규] 특정 악보의 분석 결과를 DB에서 가져오는 함수
+     */
+    suspend fun getLessonAnalysis(scoreId: Int): LessonAnalysis {
+        return withContext(Dispatchers.IO) {
+            val result = scoreDao.getLessonResultForScore(scoreId) // DAO에 이 함수 추가 필요
+            val annotations = annotationDao.getStaticAnnotationsForScore(scoreId) // DAO에 이 함수 추가 필요
+            LessonAnalysis(result, annotations)
+        }
     }
 }

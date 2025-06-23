@@ -34,7 +34,6 @@ async def process_lesson(file: UploadFile = File(...)):
         # 텍스트 변환
         processed_segments = audio_processor.transcribe_segments(segments, waveform, sr)
         logger.info("텍스트 변환 완료")
-        logger.info(f"추출된 음성 구간: {processed_segments}")
 
         # 요약 생성
         summary = summary_service.generate_summary(processed_segments)

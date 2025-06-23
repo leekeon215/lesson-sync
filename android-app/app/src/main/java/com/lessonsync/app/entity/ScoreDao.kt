@@ -39,7 +39,7 @@ interface ScoreDao {
     fun insertAnnotations(annotations: List<AnnotationEntity>)
 
     @Query("SELECT * FROM lesson_results WHERE scoreOwnerId = :scoreId LIMIT 1")
-    fun getLessonResultForScore(scoreId: Int): Flow<LessonResultEntity?>
+    suspend fun getLessonResultForScore(scoreId: Int): LessonResultEntity?
 
     @Query("SELECT * FROM annotations WHERE scoreOwnerId = :scoreId")
     fun getAnnotationsForScore(scoreId: Int): Flow<List<AnnotationEntity>>

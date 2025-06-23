@@ -21,6 +21,9 @@ interface AnnotationDao {
     @Query("SELECT * FROM annotations WHERE scoreOwnerId = :scoreOwnerId")
     fun getAnnotationsForScore(scoreOwnerId: Int): Flow<List<AnnotationEntity>>  // Flow를 사용해 DB 변경을 실시간으로 감지
 
+    @Query("SELECT * FROM annotations WHERE scoreOwnerId = :scoreOwnerId")
+    suspend fun getStaticAnnotationsForScore(scoreOwnerId: Int): List<AnnotationEntity>  // Flow를 사용해 DB 변경을 실시간으로 감지
+
     @Query("DELETE FROM annotations WHERE scoreOwnerId = :scoreOwnerId AND measureNumber = :measureNumber")
     suspend fun deleteAnnotation(scoreOwnerId: Int, measureNumber: Int)
 }

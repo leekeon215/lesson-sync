@@ -7,6 +7,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -29,6 +30,15 @@ fun ReviewScreen(
     // ViewModel의 UI 상태를 구독
     val uiState by lessonViewModel.uiState.collectAsStateWithLifecycle()
 
+    // 화면이 처음 생성되거나 scoreId가 변경될 때 딱 한 번 실행됩니다.
+    LaunchedEffect(key1 = scoreId) {
+        // ViewModel의 상태가 Idle(초기) 상태일 때만 데이터를 로드합니다.
+        // (이미 업로드 직후 Success 상태라면 다시 로드할 필요 없음)
+        if (lessonViewModel.uiState.value is LessonUiState.Idle) {
+            lessonViewModel.loadReviewData(scoreId.toInt())
+        }
+    }
+
     // 이 화면을 벗어날 때 ViewModel의 상태를 초기화하여
     // 다음 요청에 영향을 주지 않도록 함
     DisposableEffect(Unit) {
@@ -36,6 +46,7 @@ fun ReviewScreen(
             lessonViewModel.resetState()
         }
     }
+
 
     Scaffold(
         topBar = {
