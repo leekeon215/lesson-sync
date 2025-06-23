@@ -1,5 +1,6 @@
-from openai import OpenAI
+from openai import OpenAI, RateLimitError
 from config import settings
+import time
 
 class SummaryService:
     def __init__(self):
@@ -27,11 +28,31 @@ class SummaryService:
             f"{transcript}"
         )
 
-        response = self.client.chat.completions.create(
-            model="gpt-4-turbo",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
-            ]
-        )
-        return response.choices[0].message.content
+        max_retries = 5
+        base_delay = 1  # 초
+
+        for attempt in range(max_retries):
+            try:
+                response = self.client.chat.completions.create(
+                    model="gpt-3.5-turbo", # 또는 gpt-4-turbo
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt}
+                    ]
+                )
+                return response.choices[0].message.content
+            
+            except RateLimitError as e:
+                # 속도 제한 오류가 발생했을 때
+                if attempt < max_retries - 1:
+                    # 대기 시간을 점차 늘림 (1초, 2초, 4초, ...)
+                    delay = base_delay * (2 ** attempt)
+                    print(f"Rate limit exceeded. Retrying in {delay} seconds... (Attempt {attempt + 1}/{max_retries})")
+                    time.sleep(delay)
+                else:
+                    # 최대 재시도 횟수를 초과하면 최종적으로 오류를 발생시킴
+                    print("Max retries reached. Failing.")
+                    raise e
+            except Exception as e:
+                # 다른 종류의 오류는 즉시 발생시킴
+                raise e
