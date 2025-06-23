@@ -19,9 +19,6 @@ interface ScoreDao {
     @Query("SELECT * FROM scores WHERE id = :scoreId")
     fun getScoreById(scoreId: Int): ScoreEntity?
 
-    @Query("UPDATE scores SET recordedFilePath = :filePath WHERE id = :scoreId")
-    suspend fun updateRecordedFilePath(scoreId: Int, filePath: String)
-
     @Delete
     fun deleteScore(score: ScoreEntity)
 
