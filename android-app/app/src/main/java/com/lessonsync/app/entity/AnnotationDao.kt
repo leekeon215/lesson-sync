@@ -15,4 +15,7 @@ interface AnnotationDao {
 
     @Query("DELETE FROM annotations WHERE scoreOwnerId = :scoreOwnerId")
     suspend fun deleteAnnotationsForScore(scoreOwnerId: Int)
+
+    @Query("DELETE FROM annotations WHERE scoreOwnerId = :scoreOwnerId AND measureNumber = :measureNumber")
+    suspend fun deleteAnnotation(scoreOwnerId: Int, measureNumber: Int)
 }

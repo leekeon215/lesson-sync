@@ -34,7 +34,8 @@ fun ScoreWebView(
     zoomLevel: Float,
     annotations: List<AnnotationEntity>,
     showAnnotations: Boolean,
-    highlightedMeasure: Int?
+    highlightedMeasure: Int?,
+    onDeleteReuqest: (measureNumber: Int) -> Unit // 삭제 요청 콜백
 ) {
     val scoreUrl = "file:///android_asset/score.html"
     // 웹뷰 초기화 여부를 추적
@@ -85,7 +86,7 @@ fun ScoreWebView(
                 settings.allowContentAccess = true
                 setBackgroundColor(Color.TRANSPARENT)
                 setLayerType(View.LAYER_TYPE_SOFTWARE, null)
-                addJavascriptInterface(JsBridge(filePath), "jsBridge")
+                addJavascriptInterface(JsBridge(filePath, onDeleteReuqest), "jsBridge")
 
                 webViewClient = object : WebViewClient() {
                     override fun onPageFinished(view: WebView?, url: String?) {

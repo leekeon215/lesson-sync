@@ -24,6 +24,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -34,6 +35,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -61,6 +63,7 @@ import com.lessonsync.app.ui.theme.LessonSyncTheme
 import com.lessonsync.app.viewmodel.ScoreViewModel
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.key
+import androidx.core.graphics.convertTo
 
 @SuppressLint("UnrememberedGetBackStackEntry")
 @OptIn(ExperimentalMaterial3Api::class)
@@ -74,6 +77,9 @@ fun ManualAnnotationScreen(navController: NavHostController, scoreId: String) {
     val scoreViewModel: ScoreViewModel = viewModel(viewModelStoreOwner = parentEntry)
     val scoreState by scoreViewModel.selectedScore.collectAsState()
     val annotations by scoreViewModel.annotations.collectAsState()
+
+    var showDeleteDialog by remember { mutableStateOf(false) } // 삭제 확인 다이얼로그 상태
+    var measureToDelete by remember { mutableIntStateOf(0) } // 삭제할 마디 번호
 
     var annotationText by remember { mutableStateOf("") }
     var currentMeasure by remember { mutableIntStateOf(1) } // 예시 마디 번호
@@ -92,6 +98,33 @@ fun ManualAnnotationScreen(navController: NavHostController, scoreId: String) {
 
         // 로그 출력
         Log.d("ManualAnnotationScreen", "Loaded score ID: $scoreId with ${annotations.size} annotations")
+    }
+
+    // 삭제 요청 시 다이얼로그 표시
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("주석 삭제") },
+            text = { Text("${measureToDelete}번째 마디의 주석을 삭제하시겠습니까?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        // ViewModel의 삭제 함수 호출
+                        scoreState?.id?.let {
+                            scoreViewModel.deleteAnnotation(it, measureToDelete)
+                        }
+                        showDeleteDialog = false
+                    }
+                ) {
+                    Text("예")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("아니오")
+                }
+            }
+        )
     }
 
     Scaffold(
@@ -169,7 +202,16 @@ fun ManualAnnotationScreen(navController: NavHostController, scoreId: String) {
                                 zoomLevel = 0.7f, // 기본 줌 레벨 또는 상태 변수 전달
                                 annotations = annotations, // ViewModel에서 가져온 기존 주석들
                                 showAnnotations = true, // 주석 화면이므로 항상 주석 표시
-                                highlightedMeasure = currentMeasure // 현재 선택된 마디 번호 전달
+                                highlightedMeasure = currentMeasure, // 현재 선택된 마디 번호 전달
+                                onDeleteReuqest = { measureNumber ->
+                                    // 삭제 요청 콜백
+                                    measureToDelete = measureNumber
+                                    showDeleteDialog = true // 다이얼로그 표시
+                                    Log.d(
+                                        "ManualAnnotationScreen",
+                                        "Delete request for measure: $measureNumber"
+                                    )
+                                }
                             )
                         }
                     }

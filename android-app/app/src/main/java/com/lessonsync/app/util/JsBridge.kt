@@ -8,7 +8,10 @@ import java.io.File
 import java.io.ByteArrayOutputStream
 import java.util.zip.ZipInputStream
 
-class JsBridge(private val filePath: String?) {
+class JsBridge(
+    private val filePath: String?,
+    private val onDeleteRequest: (Int) -> Unit // 단계 3에서 전달받을 콜백
+) {
 
     @JavascriptInterface
     fun getUncompressedMusicXML(): String { // Base64 대신 XML 문자열 자체를 반환
@@ -35,6 +38,13 @@ class JsBridge(private val filePath: String?) {
             Log.e("JsBridge", "Error decompressing file: ${e.message}", e)
             ""
         }
+    }
+
+    @JavascriptInterface
+    fun requestDelete(measureNumber: Int) {
+        Log.d("JsBridge", "Delete request received for measure: $measureNumber")
+        // 단계 3에서 전달받은 콜백을 호출하여 삭제 요청을 처리
+        onDeleteRequest(measureNumber)
     }
 
     private fun getUncompressedXmlFromMxl(mxlFile: File): ByteArray? {

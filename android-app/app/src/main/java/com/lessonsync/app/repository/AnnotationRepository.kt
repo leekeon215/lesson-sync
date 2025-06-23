@@ -18,4 +18,8 @@ class AnnotationRepository(private val annotationDao: AnnotationDao) {
     suspend fun deleteAnnotationsForScore(scoreOwnerId: Int) {
         annotationDao.deleteAnnotationsForScore(scoreOwnerId)
     }
+
+    suspend fun deleteAnnotation(scoreOwnerId: Int, measureNumber: Int) {
+        annotationDao.deleteAnnotation(scoreOwnerId , measureNumber)
+    }
 }

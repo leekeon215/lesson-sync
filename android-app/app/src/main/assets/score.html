@@ -175,10 +175,23 @@
             svgText.setAttribute("font-family", "Arial");
             svgText.setAttribute("fill", "red");
             svgText.setAttribute("class", "custom-annotation");
+            svgText.setAttribute("cursor", "pointer"); // 마우스 커서를 포인터로 변경하여 클릭 가능함을 알림
+
+            // 클릭 시 삭제 요청 함수를 호출합니다.
+            svgText.setAttribute("onclick", `requestAnnotationDeletion(${measureNumber})`);
+
             svgText.textContent = text;
             annotationLayer.appendChild(svgText);
         } catch (e) {
             console.error("Error adding annotation to measure", measureNumber, ":", e);
+        }
+    }
+
+    // --- ▼ [추가] JavaScript에서 Kotlin을 호출하는 함수 ---
+    function requestAnnotationDeletion(measureNumber) {
+        // JsBridge를 통해 Android(Kotlin) 코드로 measureNumber를 전달합니다.
+        if (window.jsBridge) {
+            window.jsBridge.requestDelete(measureNumber);
         }
     }
 
