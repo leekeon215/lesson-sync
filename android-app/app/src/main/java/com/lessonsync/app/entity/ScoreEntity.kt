@@ -9,5 +9,6 @@ data class ScoreEntity(
     val id: Int = 0,
     val title: String,
     val filePath: String, // MusicXML 파일의 실제 경로
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val recordedFilePath: String? = null, // 녹음 파일의 경로 (선택적)
 )
