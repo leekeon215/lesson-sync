@@ -101,7 +101,7 @@ fun RecordingScreen(
                     // [수정] scoreId와 file을 모두 올바른 순서로 전달
 //                    lessonViewModel.uploadAndProcessRecording(scoreIdInt, file)
 
-                    lessonViewModel.testUploadFromAssets(scoreIdInt, "short_test_lesson_file.wav")
+                    lessonViewModel.testUploadFromAssets(scoreIdInt, "test.wav")
 
                     navController.navigate(Screen.Processing.route + "/$scoreId") {
                         popUpTo(Screen.Recording.route + "/$scoreId") { inclusive = true }

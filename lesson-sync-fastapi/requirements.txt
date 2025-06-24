@@ -40,3 +40,4 @@ watchfiles==1.0.5
 websockets==15.0.1
 whisper
 librosa
+korean_number
