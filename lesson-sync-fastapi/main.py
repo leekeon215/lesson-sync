@@ -5,7 +5,7 @@ from audio_processor import AudioProcessor
 from summary_service import SummaryService
 from pydantic import BaseModel
 from typing import List
-from score_annotator import parse_annotations
+from score_annotator import parse_summary_annotations
 import librosa
 import io
 import logging
@@ -71,7 +71,7 @@ async def parse_directives_from_text(req: AnnotationRequest):
     
     # 이미 구현된 파싱 함수를 호출
     logger.info("주석 파싱 시작")
-    annotations = parse_annotations(req.text)
+    annotations = parse_summary_annotations(req.text)
     
     # 파싱된 결과를 JSON으로 반환
     # 예: [{"measure": 5, "directive": "빠르게"}]

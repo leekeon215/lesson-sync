@@ -1,9 +1,13 @@
 import re
 from typing import List, Tuple
 from konlpy.tag import Okt
+import logging
 
 # Okt 형태소 분석기 초기화
 okt = Okt()
+
+# logger가 정의되지 않았을 수 있으므로 추가
+logger = logging.getLogger(__name__)
 
 # 한글 숫자 변환 함수 (korean_number 라이브러리 대신 사용)
 def korean_to_number(text: str) -> int:
@@ -70,9 +74,6 @@ def korean_to_number(text: str) -> int:
     
     # 처리되지 않은 경우
     raise ValueError(f"'{text}'를 숫자로 변환할 수 없습니다.")
-
-# Okt 형태소 분석기 초기화
-okt = Okt()
 
 # '마디'를 찾고, 그 앞에 오는 텍스트를 non-greedy하게 캡처하는 정규식
 # "번째"가 있어도 숫자 부분만 정확히 캡처
@@ -184,28 +185,106 @@ def parse_annotations(text: str) -> List[Tuple[int, str]]:
 
     return sorted(annotations, key=lambda x: x[0])
 
-# # --- 테스트 코드 ---
-# if __name__ == '__main__':
-#     test_sentence_1 = "세 번째 마디는 부드럽게 연주하고 일곱번째 마디는 빠르게 연주해줘."
-#     test_sentence_2 = "열다섯 마디는 아주 크게, 그리고 스물세 번째 마디는 작게."
-#     test_sentence_3 = "첫 마디부터 시작하고, 두번째 마디에서 크레센도."
-#     test_sentence_4 = "백 마디는 fff(포르티시시모)로 연주합니다."
 
-#     print(f"입력: {test_sentence_1}")
-#     print(f"결과: {parse_annotations(test_sentence_1)}")
-#     # 예상 결과: [(3, '부드럽게 연주'), (7, '빠르게 연주 해줘')]
+# score_annotator.py에 포함될 수정된 함수
 
-#     print("-" * 20)
-#     print(f"입력: {test_sentence_2}")
-#     print(f"결과: {parse_annotations(test_sentence_2)}")
-#     # 예상 결과: [(15, '아주 크게'), (23, '작게')]
+def parse_summary_annotations(text: str) -> List[Tuple[int, str]]:
+    """
+    ChatGPT가 생성한 정형화된 레슨 요약 텍스트에서 '마디별 주의사항'을 파싱합니다.
+    이때, '4번 마디'와 '네 번째 마디' 같은 한글 수사도 모두 처리합니다.
+    """
+    annotations = []
+    
+    # [수정] 정규식에서 숫자 부분(\d+)을 확장하여 한글도 캡처 (\d+|[가-힣]+)
+    # 예: '4', '네', '열다섯' 등을 모두 캡처 대상으로 함
+    pattern = re.compile(r"^\s*-\s*\**(\d+|[가-힣]+)\s*(?:번|번째)\s*마디\**:\s*(.+)$", re.MULTILINE)
+    
+    matches = pattern.findall(text)
+    
+    for match in matches:
+        try:
+            num_str = match[0].strip()
+            directive = match[1].strip()
+            measure_num = 0
 
-#     print("-" * 20)
-#     print(f"입력: {test_sentence_3}")
-#     print(f"결과: {parse_annotations(test_sentence_3)}")
-#     # 예상 결과: [(1, '부터 시작'), (2, '에서 크레센도')]
+            # [수정] 캡처한 문자열이 숫자인지 판별하는 로직 추가
+            if num_str.isdigit():
+                # 숫자일 경우, 정수로 바로 변환
+                measure_num = int(num_str)
+            else:
+                # 숫자가 아닐 경우, 한글 수사로 간주하고 korean_to_number 함수 호출
+                measure_num = korean_to_number(num_str)
 
-#     print("-" * 20)
-#     print(f"입력: {test_sentence_4}")
-#     print(f"결과: {parse_annotations(test_sentence_4)}")
-#     # 예상 결과: [(100, 'fff 포르티시시모 로 연주 합니다')]
+            # 변환된 숫자가 유효하고, 중복되지 않은 경우에만 추가
+            if measure_num > 0 and not any(ann[0] == measure_num for ann in annotations):
+                annotations.append((measure_num, directive))
+
+        except (ValueError, IndexError, KeyError) as e:
+            # korean_to_number 변환 실패 등 예외 발생 시 로그 기록
+            logger.warning(f"숫자 변환 또는 파싱 실패: '{match[0]}'. 오류: {e}")
+            continue
+            
+    # 마디 번호 순으로 정렬하여 반환
+    return sorted(annotations, key=lambda x: x[0])
+
+
+# --- 로컬 테스트용 코드 ---
+if __name__ == "__main__":
+    # image_84282b.png 의 텍스트 샘플
+    sample_text_1 = """
+    ### 총평 및 피드백 요약
+    이번 레슨에서는 각 마디 별로 연주 방식에 대한 지시사항이 주어졌습니다. 각 마디에 맞는 감정 표현과 기술적 요소들을 잘 살려 연주할 필요가 있습니다.
+
+    ### 연주 기술 점검
+    - **4번 마디**: 피아노, 즉 부드러운 방식으로 연주하도록 지시됨.
+    - **8번 마디**: 스타카토를 통해 멜로디를 통통 튀게 연주해야 함.
+    - **12번 마디**: 강한 템포로 연주하도록 요구됨.
+    - **16번 마디**: 보다 감정적으로 풍부하게 연주할 것을 요청받음.
+    - **20번 마디**: 부드럽게 4가토 스타일로 이어지도록 지시받음.
+
+    ### 마디별 주의사항
+    - **4번 마디**: 연주 시 '여리게'라는 감성에 중점을 둬야 합니다.
+    - **8번 마디**: 멜로디가 더욱 돋보일 수 있도록 스타카토 기법을 사용하세요.
+    - **12번 마디**: 템포를 강조하여 에너지 넘치는 연주를 해야 합니다.
+    - **16번 마디**: 기술적 정확성과 함께 감정을 깊게 담아낼 필요가 있습니다.
+    - **20번 마디**: 부드러운 전환을 의식하며 느긋하게 연주하세요.
+    """
+
+    # image_8427ec.png 의 텍스트 샘플
+    sample_text_2 = """
+    **총평 및 피드백 요약**
+    - 레슨 전반적으로 연주 기술을 개선하기 위한 다양한 지시가 이루어졌습니다.
+    - 특정 마디에서 감정 표현, 스타카토, 레가토 등 연주 스타일에 맞춤형 지시가 있었습니다.
+
+    **연주 기술 점검**
+    - 스타카토와 레가토의 사용을 통해 다양한 감정 표현을 강조했습니다.
+    - 특정 템포와 감정의 조화를 맞추는 부분이 주의사항으로 강조되었습니다.
+
+    **마디별 주의사항**
+    - 4번째 마디: 피아노 소리로 열심히 연주.
+    - 8번 마디: 스타카토를 강조하여 통통 튀는 느낌.
+    - 12번째 마디: 강한 템포로 연주.
+    - 16번 마디: 감정을 담아 풍부한 느낌으로 연주.
+    - 20번 마디: 부드러운 레가토로 이어서 연주.
+    """
+    
+    print("--- 테스트 1 ---")
+    results1 = parse_summary_annotations(sample_text_1)
+    import json
+    print(json.dumps(results1, indent=2, ensure_ascii=False))
+    # 예상 결과:
+    # [
+    #   { "measure": 4, "directive": "피아노, 즉 부드러운 방식으로 연주하도록 지시됨." },
+    #   { "measure": 8, "directive": "스타카토를 통해 멜로디를 통통 튀게 연주해야 함." },
+    #   ...
+    # ]
+
+    print("\n--- 테스트 2 ---")
+    results2 = parse_summary_annotations(sample_text_2)
+    print(json.dumps(results2, indent=2, ensure_ascii=False))
+    # 예상 결과:
+    # [
+    #   { "measure": 4, "directive": "피아노 소리로 열심히 연주." },
+    #   { "measure": 8, "directive": "스타카토를 강조하여 통통 튀는 느낌." },
+    #   ...
+    # ]

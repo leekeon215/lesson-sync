@@ -118,22 +118,43 @@ class LessonViewModel(application: Application) : AndroidViewModel(application) 
 
         Log.d("LessonViewModel", "전체 전문: $fullTranscript")
 
+        if (lessonData.summary.isNullOrBlank()) {
+            Log.w("LessonViewModel", "요약 정보가 없습니다. 주석 파싱을 건너뜁니다.")
+            // 요약이 없으면 주석 파싱을 건너뛰고, 현재까지의 결과만 저장
+            saveAnalysisResultToDb(scoreId, "", fullTranscript, emptyList())
+            _uiState.value = LessonUiState.Success(lessonData)
+            return
+        }
+
         viewModelScope.launch {
-            val request = AnnotationRequest(text = fullTranscript)
+
+            val request = AnnotationRequest(text = lessonData.summary)
             val annotationResult = lessonRepository.fetchAnnotations(request)
 
             annotationResult.onSuccess { annotations ->
                 // 4. 모든 정보(요약, 전문, 주석)를 DB에 최종 저장
-                saveAnalysisResultToDb(scoreId, lessonData.summary ?: "", fullTranscript, annotations)
+                saveAnalysisResultToDb(
+                    scoreId,
+                    lessonData.summary ?: "",
+                    fullTranscript,
+                    annotations
+                )
                 // 5. 모든 과정이 완료되었으므로 최종 성공 상태로 변경
                 _uiState.value = LessonUiState.Success(lessonData)
 
             }.onFailure { exception ->
                 // 주석 파싱은 실패했지만, 앞선 요약/전문 결과는 있으므로 일단 저장하고 에러 상태로 변경
-                saveAnalysisResultToDb(scoreId, lessonData.summary ?: "", fullTranscript, emptyList())
+                saveAnalysisResultToDb(
+                    scoreId,
+                    lessonData.summary ?: "",
+                    fullTranscript,
+                    emptyList()
+                )
                 _uiState.value = LessonUiState.Error(exception.message ?: "주석 정보를 가져오는 데 실패했습니다.")
             }
         }
+
+
     }
 
     /**

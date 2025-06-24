@@ -166,20 +166,79 @@
 
             console.log(`Adding annotation at measure ${measureNumber}, pos: (${x}, ${y}), text: ${text}`);
 
+            // 말풍선 그룹 생성
+            const bubbleGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+            bubbleGroup.setAttribute("class", "annotation-bubble");
+            bubbleGroup.setAttribute("cursor", "pointer");
+            bubbleGroup.setAttribute("data-measure", measureNumber);
+            bubbleGroup.setAttribute("onclick", `requestAnnotationDeletion(${measureNumber})`);
+
+            // 말풍선 패스 생성
+            const bubble = document.createElementNS("http://www.w3.org/2000/svg", "path");
+
+            // 텍스트 요소 생성 및 크기 계산을 위한 임시 추가
+            const tempText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            tempText.setAttribute("font-size", "12px");
+            tempText.setAttribute("font-family", "Arial");
+            tempText.textContent = text;
+            svgRoot.appendChild(tempText); // body 대신 svgRoot에 추가하여 정확한 SVG 컨텍스트에서 측정
+
+            // 텍스트 크기 측정
+            let textWidth = 0;
+            try {
+                const bbox = tempText.getBBox();
+                textWidth = bbox.width;
+            } catch (e) {
+                // getBBox 실패 시 대체 계산법(더 넉넉하게)
+                textWidth = text.length * 8;
+            }
+
+            svgRoot.removeChild(tempText);
+
+            // 텍스트가 잘리지 않도록 여유 공간 추가 (20% 추가)
+            textWidth = textWidth * 1.2;
+
+            const paddingX = 10;
+            const paddingY = 8;
+            const bubbleWidth = textWidth + (paddingX * 2);
+            const bubbleHeight = 24; // 기본 높이
+            const cornerRadius = 6;
+            const tailSize = 6;
+
+            // 말풍선 패스 정의 (꼬리가 아래로 향하는 말풍선)
+            const pathData = `
+                M${x},${y + cornerRadius}
+                Q${x},${y} ${x + cornerRadius},${y}
+                H${x + bubbleWidth - cornerRadius}
+                Q${x + bubbleWidth},${y} ${x + bubbleWidth},${y + cornerRadius}
+                V${y + bubbleHeight - cornerRadius}
+                Q${x + bubbleWidth},${y + bubbleHeight} ${x + bubbleWidth - cornerRadius},${y + bubbleHeight}
+                H${x + (bubbleWidth/2) + tailSize}
+                L${x + (bubbleWidth/2)},${y + bubbleHeight + tailSize}
+                L${x + (bubbleWidth/2) - tailSize},${y + bubbleHeight}
+                H${x + cornerRadius}
+                Q${x},${y + bubbleHeight} ${x},${y + bubbleHeight - cornerRadius}
+                V${y + cornerRadius}
+                Z
+            `;
+
+            bubble.setAttribute("d", pathData);
+            bubble.setAttribute("fill", "#FFFFE0"); // 연한 노란색
+            bubble.setAttribute("stroke", "#888888");
+            bubble.setAttribute("stroke-width", "1");
+            bubble.setAttribute("filter", "drop-shadow(2px 2px 2px rgba(0,0,0,0.2))");
+
+            // 텍스트 생성
             const svgText = document.createElementNS("http://www.w3.org/2000/svg", "text");
-            svgText.setAttribute("x", x);
-            svgText.setAttribute("y", y);
-            svgText.setAttribute("font-size", "14px");
-            svgText.setAttribute("font-family", "Arial");
-            svgText.setAttribute("fill", "red");
-            svgText.setAttribute("class", "custom-annotation");
-            svgText.setAttribute("cursor", "pointer"); // 마우스 커서를 포인터로 변경하여 클릭 가능함을 알림
-
-            // 클릭 시 삭제 요청 함수를 호출합니다.
-            svgText.setAttribute("onclick", `requestAnnotationDeletion(${measureNumber})`);
-
+            svgText.setAttribute("x", x + paddingX);
+            svgText.setAttribute("y", y + 16); // 텍스트 수직 중앙 정렬
+            svgText.setAttribute("class", "annotation-text");
             svgText.textContent = text;
-            annotationLayer.appendChild(svgText);
+
+            // 그룹에 요소 추가
+            bubbleGroup.appendChild(bubble);
+            bubbleGroup.appendChild(svgText);
+            annotationLayer.appendChild(bubbleGroup);
         } catch (e) {
             console.error("Error adding annotation to measure", measureNumber, ":", e);
         }
