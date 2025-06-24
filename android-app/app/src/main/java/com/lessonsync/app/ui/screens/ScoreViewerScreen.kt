@@ -25,6 +25,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Note
 import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.FiberManualRecord
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.TextFields
@@ -380,7 +382,7 @@ fun ScoreViewerScreen(navController: NavHostController, scoreId: String) {
                     } else {
                         // TODO: 여기에 커스텀 녹음 아이콘 이미지를 넣으세요.
                         Icon(
-                            painter = painterResource(id = R.drawable.ic_launcher_background), // 예시 (drawable에 추가 필요)
+                            imageVector = Icons.Default.Mic,
                             contentDescription = "녹음 시작",
                             tint = Color.White,
                             modifier = Modifier.size(20.dp)

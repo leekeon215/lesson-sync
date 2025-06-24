@@ -184,28 +184,28 @@ def parse_annotations(text: str) -> List[Tuple[int, str]]:
 
     return sorted(annotations, key=lambda x: x[0])
 
-# --- 테스트 코드 ---
-if __name__ == '__main__':
-    test_sentence_1 = "세 번째 마디는 부드럽게 연주하고 일곱번째 마디는 빠르게 연주해줘."
-    test_sentence_2 = "열다섯 마디는 아주 크게, 그리고 스물세 번째 마디는 작게."
-    test_sentence_3 = "첫 마디부터 시작하고, 두번째 마디에서 크레센도."
-    test_sentence_4 = "백 마디는 fff(포르티시시모)로 연주합니다."
+# # --- 테스트 코드 ---
+# if __name__ == '__main__':
+#     test_sentence_1 = "세 번째 마디는 부드럽게 연주하고 일곱번째 마디는 빠르게 연주해줘."
+#     test_sentence_2 = "열다섯 마디는 아주 크게, 그리고 스물세 번째 마디는 작게."
+#     test_sentence_3 = "첫 마디부터 시작하고, 두번째 마디에서 크레센도."
+#     test_sentence_4 = "백 마디는 fff(포르티시시모)로 연주합니다."
 
-    print(f"입력: {test_sentence_1}")
-    print(f"결과: {parse_annotations(test_sentence_1)}")
-    # 예상 결과: [(3, '부드럽게 연주'), (7, '빠르게 연주 해줘')]
+#     print(f"입력: {test_sentence_1}")
+#     print(f"결과: {parse_annotations(test_sentence_1)}")
+#     # 예상 결과: [(3, '부드럽게 연주'), (7, '빠르게 연주 해줘')]
 
-    print("-" * 20)
-    print(f"입력: {test_sentence_2}")
-    print(f"결과: {parse_annotations(test_sentence_2)}")
-    # 예상 결과: [(15, '아주 크게'), (23, '작게')]
+#     print("-" * 20)
+#     print(f"입력: {test_sentence_2}")
+#     print(f"결과: {parse_annotations(test_sentence_2)}")
+#     # 예상 결과: [(15, '아주 크게'), (23, '작게')]
 
-    print("-" * 20)
-    print(f"입력: {test_sentence_3}")
-    print(f"결과: {parse_annotations(test_sentence_3)}")
-    # 예상 결과: [(1, '부터 시작'), (2, '에서 크레센도')]
+#     print("-" * 20)
+#     print(f"입력: {test_sentence_3}")
+#     print(f"결과: {parse_annotations(test_sentence_3)}")
+#     # 예상 결과: [(1, '부터 시작'), (2, '에서 크레센도')]
 
-    print("-" * 20)
-    print(f"입력: {test_sentence_4}")
-    print(f"결과: {parse_annotations(test_sentence_4)}")
-    # 예상 결과: [(100, 'fff 포르티시시모 로 연주 합니다')]
+#     print("-" * 20)
+#     print(f"입력: {test_sentence_4}")
+#     print(f"결과: {parse_annotations(test_sentence_4)}")
+#     # 예상 결과: [(100, 'fff 포르티시시모 로 연주 합니다')]
