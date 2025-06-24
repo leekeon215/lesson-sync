@@ -21,7 +21,7 @@ class AudioProcessor:
     def _init_whisper(self):
         device = "cuda" if torch.cuda.is_available() else "cpu"
         # print(f"device: {device}")
-        return whisper.load_model("small", device=device)
+        return whisper.load_model("tiny", device=device)
 
     def extract_speech_segments(self, waveform, sr):
         waveform_tf = tf.convert_to_tensor(waveform, dtype=tf.float32)

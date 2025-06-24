@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -88,7 +90,7 @@ fun RecordingScreen(
     }
 
     // stopRecording 로직을 코루틴 내에서 실행하도록 변경
-    fun stopRecording() {
+    fun stopRecording(num: Int) {
         if (!isRecording) return
 
         scope.launch {
@@ -101,7 +103,13 @@ fun RecordingScreen(
                     // [수정] scoreId와 file을 모두 올바른 순서로 전달
 //                    lessonViewModel.uploadAndProcessRecording(scoreIdInt, file)
 
-                    lessonViewModel.testUploadFromAssets(scoreIdInt, "test_lesson_file.wav")
+                    if(num == 1) {
+                        lessonViewModel.testUploadFromAssets(scoreIdInt, "sample.wav")
+                    } else if(num == 2) {
+                        lessonViewModel.testUploadFromAssets(scoreIdInt, "sample_playing.wav")
+                    } else if(num == 3) {
+                        lessonViewModel.testUploadFromAssets(scoreIdInt, "sample_playing_chat.wav")
+                    }
 
                     navController.navigate(Screen.Processing.route + "/$scoreId") {
                         popUpTo(Screen.Recording.route + "/$scoreId") { inclusive = true }
@@ -142,7 +150,7 @@ fun RecordingScreen(
                 navigationIcon = {
                     IconButton(onClick = {
                         // 뒤로가기 시에도 녹음이 진행중이면 중지
-                        if (isRecording) stopRecording()
+                        if (isRecording) stopRecording(1)
                         else navController.popBackStack()
                     }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "뒤로 가기")
@@ -166,7 +174,7 @@ fun RecordingScreen(
             )
 
             IconButton(
-                onClick = { stopRecording() },
+                onClick = { stopRecording(1) },
                 modifier = Modifier.size(80.dp),
                 colors = IconButtonDefaults.iconButtonColors(
                     containerColor = MaterialTheme.colorScheme.errorContainer,
@@ -179,6 +187,35 @@ fun RecordingScreen(
                     modifier = Modifier.size(48.dp)
                 )
             }
+            IconButton(
+                onClick = {stopRecording(2) },
+                modifier = Modifier.size(80.dp),
+                colors = IconButtonDefaults.iconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                    contentColor = MaterialTheme.colorScheme.onErrorContainer
+                )
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Pause,
+                    contentDescription = "녹음 정지",
+                    modifier = Modifier.size(48.dp)
+                )
+            }
+            IconButton(
+                onClick = { stopRecording(3) },
+                modifier = Modifier.size(80.dp),
+                colors = IconButtonDefaults.iconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                    contentColor = MaterialTheme.colorScheme.onErrorContainer
+                )
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Place,
+                    contentDescription = "녹음 정지",
+                    modifier = Modifier.size(48.dp)
+                )
+            }
+
 
             Spacer(modifier = Modifier.height(40.dp))
         }
